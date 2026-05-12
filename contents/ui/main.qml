@@ -1,4 +1,5 @@
 /*
+ *   SPDX-FileCopyrightText: 2026 Yasuhiro Yamakawa <kawatab@gmail.com>
  *   SPDX-FileCopyrightText: 2015 Bernhard Friedreich <friesoft@gmail.com>
  *   SPDX-FileCopyrightText: 2014 Martin Yrjölä <martin.yrjola@gmail.com>
  *   SPDX-FileCopyrightText: 2012, 2014 Davide Bettio <davide.bettio@kdemail.net>
@@ -8,6 +9,11 @@
  *   SPDX-FileCopyrightText: 2008 Laurent Montel <montel@kde.org>
  *
  *   SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ *   Based on the source code from the Debian package (plasma-widgets-addons).
+ *   Fork maintenance by Yasuhiro Yamakawa:
+ *   - Ported to Plasma 6 / Qt6 (Fixed implicit 'event' parameter warnings).
+ *   - Improved hardware compatibility for Dell KB740 (F9 key mapping).
  */
 
 import QtQuick 2.5
@@ -138,6 +144,18 @@ PlasmoidItem {
         showingResult = false;
     }
 
+    // Added by Yasuhiro Yamakawa on 2026-05-12
+    // Support sign inversion
+    function negate() {
+        if (showingInput) {
+            operand = -operand;
+            displayNumber(operand);
+        } else if (hasResult) {
+            result = -result;
+            displayNumber(result);
+        }
+    }
+
     function equalsClicked() {
         showingResult = true;
         doOperation();
@@ -245,19 +263,57 @@ PlasmoidItem {
             focus: true;
             spacing: 4;
 
-            Keys.onDigit0Pressed: { digitClicked(0); zeroButton.forceActiveFocus(Qt.TabFocusReason); }
-            Keys.onDigit1Pressed: { digitClicked(1); oneButton.forceActiveFocus(Qt.TabFocusReason); }
-            Keys.onDigit2Pressed: { digitClicked(2); twoButton.forceActiveFocus(Qt.TabFocusReason); }
-            Keys.onDigit3Pressed: { digitClicked(3); threeButton.forceActiveFocus(Qt.TabFocusReason); }
-            Keys.onDigit4Pressed: { digitClicked(4); fourButton.forceActiveFocus(Qt.TabFocusReason); }
-            Keys.onDigit5Pressed: { digitClicked(5); fiveButton.forceActiveFocus(Qt.TabFocusReason); }
-            Keys.onDigit6Pressed: { digitClicked(6); sixButton.forceActiveFocus(Qt.TabFocusReason); }
-            Keys.onDigit7Pressed: { digitClicked(7); sevenButton.forceActiveFocus(Qt.TabFocusReason); }
-            Keys.onDigit8Pressed: { digitClicked(8); eightButton.forceActiveFocus(Qt.TabFocusReason); }
-            Keys.onDigit9Pressed: { digitClicked(9); nineButton.forceActiveFocus(Qt.TabFocusReason); }
-            Keys.onEscapePressed: { allClearClicked(); allClearButton.forceActiveFocus(Qt.TabFocusReason); }
-            Keys.onDeletePressed: { clearClicked(); clearButton.forceActiveFocus(Qt.TabFocusReason); }
-            Keys.onPressed: {
+            // Modified by Yasuhiro Yamakawa on 2026-05-12 for Qt6 compatibility:
+            // Updated all key event handlers (digits and operators) to explicit signal handler syntax.
+            Keys.onDigit0Pressed: (event) => {
+                digitClicked(0); zeroButton.forceActiveFocus(Qt.TabFocusReason);
+                event.accepted = true;
+            }
+            Keys.onDigit1Pressed: (event) => {
+                digitClicked(1); oneButton.forceActiveFocus(Qt.TabFocusReason);
+                event.accepted = true;
+            }
+            Keys.onDigit2Pressed: (event) => {
+                digitClicked(2); twoButton.forceActiveFocus(Qt.TabFocusReason);
+                event.accepted = true;
+            }
+            Keys.onDigit3Pressed: (event) => {
+                digitClicked(3); threeButton.forceActiveFocus(Qt.TabFocusReason);
+                event.accepted = true;
+            }
+            Keys.onDigit4Pressed: (event) => {
+                digitClicked(4); fourButton.forceActiveFocus(Qt.TabFocusReason);
+                event.accepted = true;
+            }
+            Keys.onDigit5Pressed: (event) => {
+                digitClicked(5); fiveButton.forceActiveFocus(Qt.TabFocusReason);
+                event.accepted = true;
+            }
+            Keys.onDigit6Pressed: (event) => {
+                digitClicked(6); sixButton.forceActiveFocus(Qt.TabFocusReason);
+                event.accepted = true;
+            }
+            Keys.onDigit7Pressed: (event) => {
+                digitClicked(7); sevenButton.forceActiveFocus(Qt.TabFocusReason);
+                event.accepted = true;
+            }
+            Keys.onDigit8Pressed: (event) => {
+                digitClicked(8); eightButton.forceActiveFocus(Qt.TabFocusReason);
+                event.accepted = true;
+            }
+            Keys.onDigit9Pressed: (event) => {
+                digitClicked(9); nineButton.forceActiveFocus(Qt.TabFocusReason);
+                event.accepted = true;
+            }
+            Keys.onEscapePressed: (event) => {
+                allClearClicked(); allClearButton.forceActiveFocus(Qt.TabFocusReason);
+                event.accepted = true;
+            }
+            Keys.onDeletePressed: (event) => {
+                clearClicked(); clearButton.forceActiveFocus(Qt.TabFocusReason);
+                event.accepted = true;
+            }
+            Keys.onPressed: (event) => {
                 switch (event.key) {
                 case Qt.Key_Plus:
                     setOperator("+");
@@ -289,14 +345,27 @@ PlasmoidItem {
                     deleteDigit();
                     display.forceActiveFocus(Qt.TabFocusReason);
                     break;
+                // Added by Yasuhiro Yamakawa on 2026-05-12
+                // Handles the +/- key found on keyboards like the Dell KB740 (maps to F9).
+                case Qt.Key_F9:
+                    negate();
+                    break;
                 default:
                     if (event.matches(StandardKey.Copy)) {
                         copyToClipboard();
+                        break;
                     } else if (event.matches(StandardKey.Paste)) {
                         pasteFromClipboard();
+                        break;
                     }
-                    break;
+                    // Modified by Yasuhiro Yamakawa on 2026-05-12 for Qt6 compatibility:
+                    // Fall through: set accepted to false and exit to skip the final accepted = true
+                    event.accepted = false;
+                    return;
                 }
+                // Modified by Yasuhiro Yamakawa on 2026-05-12 for Qt6 compatibility:
+                // Finalize the event if it was caught by one of the cases above
+                event.accepted = true;
             }
 
             KeyNavigation.up: zeroButton
@@ -583,4 +652,3 @@ PlasmoidItem {
         }
     }
 }
-
