@@ -49,6 +49,9 @@ PlasmoidItem {
                                               // When calculating 1/3 the answer is
                                               // 18 characters long.
 
+    // Modified by Yasuhiro Yamakawa on 2026-05-12
+    // Support sign inversion (Casio style):
+    // Inverts the current result if no input has started, or inverts the current operand being typed.
     function digitClicked(digit) {
         if (showingResult) {
             allClearClicked();
@@ -57,8 +60,10 @@ PlasmoidItem {
         if (commaPressed) {
             ++decimals;
             var tenToTheDecimals = Math.pow(10, decimals);
+            operand = Math.abs(operand); // Remove the sign
             operand = (operand * tenToTheDecimals + digit) / tenToTheDecimals;
         } else {
+            operand = Math.abs(operand); // Remove the sign
             operand = operand * 10 + digit;
         }
         showingInput = true;
@@ -66,6 +71,9 @@ PlasmoidItem {
         ++inputSize;
     }
 
+    // Modified by Yasuhiro Yamakawa on 2026-05-12
+    // Support sign inversion (Casio style):
+    // Inverts the current result if no input has started, or inverts the current operand being typed.
     function deleteDigit() {
         if (showingResult) {
             allClearClicked();
@@ -76,11 +84,13 @@ PlasmoidItem {
                 if (decimals === 0) {
                     commaPressed = false;
                 } else if (decimals > 0) {
+                    operand = Math.abs(operand); // Remove the sign
                     operand -= operand % Math.pow(10, 1 - decimals);
                     --decimals;
                     --inputSize;
                 }
             } else if (inputSize > 0) {
+                operand = Math.abs(operand); // Remove the sign
                 operand = (operand - (operand % 10)) / 10;
                 --inputSize;
             }
@@ -147,7 +157,7 @@ PlasmoidItem {
     // Added by Yasuhiro Yamakawa on 2026-05-12
     // Support sign inversion
     function negate() {
-        if (showingInput) {
+        if (showingInput && operand !== 0) {
             operand = -operand;
             displayNumber(operand);
         } else if (hasResult) {
@@ -243,6 +253,22 @@ PlasmoidItem {
         visible: false
         height: 0
         activeFocusOnTab: false
+    }
+
+    // Added by Yasuhiro Yamakawa on 2026-05-12
+    // Custom button component to ensure consistent styling and behavior across all calculator buttons.
+    component CalcButton : PlasmaComponents.Button {
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+    
+        // Override the contentItem once here
+        contentItem: QQC2.Label {
+            text: parent.text
+            font: parent.font
+            color: Kirigami.Theme.textColor
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
     }
 
     fullRepresentation: QQC2.Control {
@@ -349,6 +375,7 @@ PlasmoidItem {
                 // Handles the +/- key found on keyboards like the Dell KB740 (maps to F9).
                 case Qt.Key_F9:
                     negate();
+                    negateButton.forceActiveFocus(Qt.TabFocusReason);
                     break;
                 default:
                     if (event.matches(StandardKey.Copy)) {
@@ -367,11 +394,12 @@ PlasmoidItem {
                 // Finalize the event if it was caught by one of the cases above
                 event.accepted = true;
             }
-
-            KeyNavigation.up: zeroButton
-            KeyNavigation.down: clearButton
-            KeyNavigation.left: allClearButton
-            KeyNavigation.right: clearButton
+            // Modified by Yasuhiro Yamakawa on 2026-05-12
+            // Don't show highlight on buttons after release keys.
+            Keys.onReleased: (event) => {
+                display.forceActiveFocus(Qt.TabFocusReason);
+                event.accepted = true;
+            }
 
             KSvg.FrameSvgItem {
                 id: displayFrame;
@@ -406,8 +434,13 @@ PlasmoidItem {
                         value: display
                     }
                 }
+
+                KeyNavigation.up: zeroButton
+                KeyNavigation.down: allClearButton
             }
 
+            // Modified by Yasuhiro Yamakawa on 2026-05-12
+            // Arranged the buttons to match the standard calculator layout and added the new negate button.
             GridLayout {
                 id: buttonsGrid;
                 columns: 4;
@@ -418,235 +451,239 @@ PlasmoidItem {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
-                PlasmaComponents.Button {
-                    id: clearButton
-
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
-                    KeyNavigation.down: sevenButton
-                    KeyNavigation.right: divideButton
-
-                    text: i18nc("Text of the clear button", "C");
-                    onClicked: clearClicked();
-                }
-
-                PlasmaComponents.Button {
-                    id: divideButton
-
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
-                    KeyNavigation.down: eightButton
-                    KeyNavigation.right: multiplyButton
-
-                    text: i18nc("Text of the division button", "÷");
-                    onClicked: setOperator("/");
-                }
-
-                PlasmaComponents.Button {
-                    id: multiplyButton
-
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
-                    KeyNavigation.down: nineButton
-                    KeyNavigation.right: allClearButton
-
-                    text: i18nc("Text of the multiplication button", "×");
-                    onClicked: setOperator("*");
-                }
-
-                PlasmaComponents.Button {
+                CalcButton {
                     id: allClearButton
 
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
-                    KeyNavigation.down: minusButton
+                    KeyNavigation.up: display
+                    KeyNavigation.down: sevenButton
+                    KeyNavigation.left: divideButton
+                    KeyNavigation.right: clearButton
 
                     text: i18nc("Text of the all clear button", "AC");
                     onClicked: allClearClicked();
                 }
 
+                CalcButton {
+                    id: clearButton
 
-                PlasmaComponents.Button {
+                    KeyNavigation.up: display
+                    KeyNavigation.down: eightButton
+                    KeyNavigation.left: allClearButton
+                    KeyNavigation.right: negateButton
+
+                    text: i18nc("Text of the clear button", "C");
+                    onClicked: clearClicked();
+                }
+
+                // Added by Yasuhiro Yamakawa on 2026-05-12
+                // New button for sign inversion (negate).
+                CalcButton {
+                    id: negateButton
+
+                    KeyNavigation.up: display
+                    KeyNavigation.down: nineButton
+                    KeyNavigation.left: clearButton
+                    KeyNavigation.right: divideButton
+
+                    text: i18nc("Text of the negate button", "+/−");
+                    onClicked: negate();
+                }
+
+                CalcButton {
+                    id: divideButton
+
+                    KeyNavigation.up: display
+                    KeyNavigation.down: multiplyButton
+                    KeyNavigation.left: negateButton
+                    KeyNavigation.right: allClearButton
+
+                    text: i18nc("Text of the division button", "÷");
+                    onClicked: setOperator("/");
+                }
+
+
+                CalcButton {
                     id: sevenButton
 
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
+                    KeyNavigation.up: allClearButton
                     KeyNavigation.down: fourButton
+                    KeyNavigation.left: multiplyButton
                     KeyNavigation.right: eightButton
 
-                    text: "7";
+                    text: "\u20027\u2002";
                     onClicked: digitClicked(7);
                 }
 
-                PlasmaComponents.Button {
+                CalcButton {
                     id: eightButton
 
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
+                    KeyNavigation.up: clearButton
                     KeyNavigation.down: fiveButton
+                    KeyNavigation.left: sevenButton
                     KeyNavigation.right: nineButton
 
-                    text: "8";
+                    text: "\u20028\u2002";
                     onClicked: digitClicked(8);
                 }
 
-                PlasmaComponents.Button {
+                CalcButton {
                     id: nineButton
 
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
+                    KeyNavigation.up: negateButton
                     KeyNavigation.down: sixButton
-                    KeyNavigation.right: minusButton
+                    KeyNavigation.left: eightButton
+                    KeyNavigation.right: multiplyButton
 
-                    text: "9";
+                    text: "\u20029\u2002";
                     onClicked: digitClicked(9);
                 }
 
-                PlasmaComponents.Button {
+                CalcButton {
+                    id: multiplyButton
+
+                    KeyNavigation.up: divideButton
+                    KeyNavigation.down: minusButton
+                    KeyNavigation.left: nineButton
+                    KeyNavigation.right: sevenButton
+
+                    text: i18nc("Text of the multiplication button", "\u2002×\u2002");
+                    onClicked: setOperator("*");
+                }
+
+
+                CalcButton {
+                    id: fourButton
+
+                    KeyNavigation.up: sevenButton
+                    KeyNavigation.down: oneButton
+                    KeyNavigation.left: minusButton
+                    KeyNavigation.right: fiveButton
+
+                    text: "\u20024\u2002";
+                    onClicked: digitClicked(4);
+                }
+
+                CalcButton {
+                    id: fiveButton
+
+                    KeyNavigation.up: eightButton
+                    KeyNavigation.down: twoButton
+                    KeyNavigation.left: fourButton
+                    KeyNavigation.right: sixButton
+
+                    text: "\u20025\u2002";
+                    onClicked: digitClicked(5);
+                }
+
+                CalcButton {
+                    id: sixButton
+
+                    KeyNavigation.up: nineButton
+                    KeyNavigation.down: threeButton
+                    KeyNavigation.left: fiveButton
+                    KeyNavigation.right: minusButton
+
+                    text: "\u20026\u2002";
+                    onClicked: digitClicked(6);
+                }
+
+                CalcButton {
                     id: minusButton
 
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
+                    KeyNavigation.up: multiplyButton
                     KeyNavigation.down: plusButton
+                    KeyNavigation.left: sixButton
+                    KeyNavigation.right: fourButton
 
-                    text: i18nc("Text of the minus button", "-");
+                    text: i18nc("Text of the minus button", "−");
                     onClicked: setOperator("-");
                 }
 
 
-                PlasmaComponents.Button {
-                    id: fourButton
+                CalcButton {
+                    id: oneButton
 
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    KeyNavigation.up: fourButton
+                    KeyNavigation.down: zeroButton
+                    KeyNavigation.left: plusButton
+                    KeyNavigation.right: twoButton
 
-                    KeyNavigation.down: oneButton
-                    KeyNavigation.right: fiveButton
-
-                    text: "4";
-                    onClicked: digitClicked(4);
+                    text: "\u20021\u2002";
+                    onClicked: digitClicked(1);
                 }
 
-                PlasmaComponents.Button {
-                    id: fiveButton
+                CalcButton {
+                    id: twoButton
 
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    KeyNavigation.up: fiveButton
+                    KeyNavigation.down: decimalButton
+                    KeyNavigation.left: oneButton
+                    KeyNavigation.right: threeButton
 
-                    KeyNavigation.down: twoButton
-                    KeyNavigation.right: sixButton
-
-                    text: "5";
-                    onClicked: digitClicked(5);
+                    text: "\u20022\u2002";
+                    onClicked: digitClicked(2);
                 }
 
-                PlasmaComponents.Button {
-                    id: sixButton
+                CalcButton {
+                    id: threeButton
 
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
-                    KeyNavigation.down: threeButton
+                    KeyNavigation.up: sixButton
+                    KeyNavigation.down: ansButton
+                    KeyNavigation.left: twoButton
                     KeyNavigation.right: plusButton
 
-                    text: "6";
-                    onClicked: digitClicked(6);
+                    text: "\u20023\u2002";
+                    onClicked: digitClicked(3);
                 }
 
-                PlasmaComponents.Button {
+                CalcButton {
                     id: plusButton
 
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    KeyNavigation.up: minusButton
+                    KeyNavigation.down: display
+                    KeyNavigation.left: threeButton
+                    KeyNavigation.right: oneButton
 
-                    KeyNavigation.down: ansButton
-
+                    Layout.rowSpan: 2
                     text: i18nc("Text of the plus button", "+");
                     onClicked: setOperator("+");
                 }
 
-
-                PlasmaComponents.Button {
-                    id: oneButton
-
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
-                    KeyNavigation.down: zeroButton
-                    KeyNavigation.right: twoButton
-
-                    text: "1";
-                    onClicked: digitClicked(1);
-                }
-
-                PlasmaComponents.Button {
-                    id: twoButton
-
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
-                    KeyNavigation.down: zeroButton
-                    KeyNavigation.right: threeButton
-
-                    text: "2";
-                    onClicked: digitClicked(2);
-                }
-
-                PlasmaComponents.Button {
-                    id: threeButton
-
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
-                    KeyNavigation.down: decimalButton
-                    KeyNavigation.right: ansButton
-
-                    text: "3";
-                    onClicked: digitClicked(3);
-                }
-
-                PlasmaComponents.Button {
-                    id: ansButton
-
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
-                    Layout.rowSpan: 2
-                    text: i18nc("Text of the equals button", "=");
-                    onClicked: equalsClicked();
-                }
-
-                PlasmaComponents.Button {
+                CalcButton {
                     id: zeroButton
 
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
+                    KeyNavigation.up: oneButton
+                    KeyNavigation.down: display
+                    KeyNavigation.left: plusButton
                     KeyNavigation.right: decimalButton
 
-                    Layout.columnSpan: 2
-                    text: "0";
+
+                    text: "\u20020\u2002";
                     onClicked: digitClicked(0);
                 }
 
-                PlasmaComponents.Button {
+                CalcButton {
                     id: decimalButton
 
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
+                    KeyNavigation.up: twoButton
+                    KeyNavigation.down: display
+                    KeyNavigation.left: zeroButton
                     KeyNavigation.right: ansButton
 
                     text: Qt.locale().decimalPoint;
                     onClicked: decimalClicked();
+                }
+
+                CalcButton {
+                    id: ansButton
+
+                    KeyNavigation.up: threeButton
+                    KeyNavigation.down: display
+                    KeyNavigation.left: decimalButton
+                    KeyNavigation.right: plusButton
+                    
+                    text: i18nc("Text of the equals button", "=");
+                    onClicked: equalsClicked();
                 }
             }
         }
