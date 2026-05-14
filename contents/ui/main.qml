@@ -13,15 +13,18 @@
  *   Based on the source code from the Debian package (plasma-widgets-addons).
  *   Fork maintenance by Yasuhiro Yamakawa:
  *   - Ported to Plasma 6 / Qt6 (Fixed implicit 'event' parameter warnings).
- *   - Improved hardware compatibility for Dell KB740 (F9 key mapping).
+ *   - Added support for sign inversion (negate) and clear entry (CE) functionality.
+ *   - Updated button layout to match standard calculator design.
+ *   - Improved code readability and maintainability with an enum for operators.
  */
 
-import QtQuick 2.5
+import QtQuick 2.15
 import QtQuick.Layouts 1.3
 import QtQuick.Controls 2.5 as QQC2
 import org.kde.kirigami 2.20 as Kirigami
 import org.kde.ksvg 1.0 as KSvg
 import org.kde.plasma.components 3.0 as PlasmaComponents
+import org.kde.plasma.core 2.0 as PlasmaCore
 import org.kde.plasma.plasmoid
 
 PlasmoidItem {
@@ -33,11 +36,13 @@ PlasmoidItem {
     // Make the buttons' text labels scale with the widget's size
     // This is propagated down to all child controls with text
 
+    // Modified by Yasuhiro Yamakawa on 2026-05-14
+    // Changed operator property to an enum for better readability and maintainability.
+    // Removed hasResult and showingResult properties as they are no longer needed
+    //   with the new operator handling logic.
     property real result: 0;
-    property bool hasResult: false;
     property bool showingInput: true;
-    property bool showingResult: false;
-    property string operator
+    property int operator: Constants.Operator.None;
     property real operand: 0;
     property bool commaPressed: false;
     property int decimals: 0;
@@ -49,12 +54,19 @@ PlasmoidItem {
                                               // When calculating 1/3 the answer is
                                               // 18 characters long.
 
+    // Modified by Yasuhiro Yamakawa on 2026-05-14
+    // Adapted to the new operator handling logic.
+    //
     // Modified by Yasuhiro Yamakawa on 2026-05-12
     // Support sign inversion (Casio style):
     // Inverts the current result if no input has started, or inverts the current operand being typed.
     function digitClicked(digit) {
-        if (showingResult) {
-            allClearClicked();
+        if (!showingInput) {
+            if (operator === Constants.Operator.None) {
+                allClearClicked();
+            } else {
+                clearOperand();
+            }
         }
 
         if (commaPressed) {
@@ -66,19 +78,18 @@ PlasmoidItem {
             operand = Math.abs(operand); // Remove the sign
             operand = operand * 10 + digit;
         }
-        showingInput = true;
-        displayNumber(operand);
+
+        displayOperand();
         ++inputSize;
     }
 
+    // Modified by Yasuhiro Yamakawa on 2026-05-14
+    // Adapted to the new operator handling logic.
+    //
     // Modified by Yasuhiro Yamakawa on 2026-05-12
     // Support sign inversion (Casio style):
     // Inverts the current result if no input has started, or inverts the current operand being typed.
     function deleteDigit() {
-        if (showingResult) {
-            allClearClicked();
-        }
-
         if (showingInput) {
             if (commaPressed) {
                 if (decimals === 0) {
@@ -94,44 +105,52 @@ PlasmoidItem {
                 operand = (operand - (operand % 10)) / 10;
                 --inputSize;
             }
+        } else {
+            clearEntryClicked();
         }
-        displayNumber(operand);
+
+        displayOperand();
     }
 
+    // Modified by Yasuhiro Yamakawa on 2026-05-14
+    // Adapted to the new operator handling logic.
     function decimalClicked() {
-        if (showingResult) {
-            allClearClicked();
+        if (!showingInput) {
+            clearOperand();
+            showingInput = true;
         }
 
         commaPressed = true;
-        showingInput = true;
-        displayNumber(operand);
+
+        displayOperand();
     }
 
+    // Modified by Yasuhiro Yamakawa on 2026-05-14
+    // Adapted to the new operator handling logic.
     function doOperation() {
         switch (operator) {
-        case "+":
+        case Constants.Operator.None:
+            result = operand;
+            break;
+        case Constants.Operator.Add:
             result += operand;
             break;
-        case "-":
+        case Constants.Operator.Subtract:
             result -= operand;
             break;
-        case "*":
+        case Constants.Operator.Multiply:
             result *= operand;
             break;
-        case "/":
+        case Constants.Operator.Divide:
             if (operand === 0) {
-                divisionByZero();
+                displayError(i18nc("Error message for division by zero, max. six to nine characters.", "Div/0"));
                 return;
             }
             result /= operand;
             break;
-        default:
-            return;
         }
 
-        showingInput = false;
-        displayNumber(result);
+        displayResult();
     }
 
     function clearOperand() {
@@ -141,48 +160,67 @@ PlasmoidItem {
         inputSize = 0;
     }
 
+    // Added by Yasuhiro Yamakawa on 2026-05-14
+    // Adapted to the new operator handling logic.
+    function clearOperator() {
+        operator = Constants.Operator.None;
+    }
+
+    // Modified by Yasuhiro Yamakawa on 2026-05-14
+    // Adapted to the new operator handling logic.
     function setOperator(op) {
-        if (!hasResult) {
-            result = operand;
-            hasResult = true;
-        } else if (showingInput) {
+        if (showingInput) {
             doOperation();
         }
 
-        clearOperand();
         operator = op;
-        showingResult = false;
     }
 
+    // Modified by Yasuhiro Yamakawa on 2026-05-14
+    // Adapted to the new operator handling logic.
+    //
     // Added by Yasuhiro Yamakawa on 2026-05-12
     // Support sign inversion
     function negate() {
-        if (showingInput && operand !== 0) {
+        if (showingInput) {
             operand = -operand;
-            displayNumber(operand);
-        } else if (hasResult) {
+            displayOperand();
+        } else {
             result = -result;
-            displayNumber(result);
+            displayResult();
         }
     }
 
+    // Modified by Yasuhiro Yamakawa on 2026-05-14
+    // Adapted to the new operator handling logic.
     function equalsClicked() {
-        showingResult = true;
-        doOperation();
+        if (showingInput || operator !== Constants.Operator.None) {
+            doOperation();
+            clearOperator();
+            clearOperand();
+        }
     }
 
-    function clearClicked() {
+    // Added by Yasuhiro Yamakawa on 2026-05-14
+    // Support clear entry (CE) functionality:
+    // Clears the current operand being typed without affecting the ongoing calculation or operator.
+    function clearEntryClicked() {
         clearOperand();
-        operator = "";
-        displayNumber(operand);
-        showingInput = true;
-        showingResult = false;
+        displayOperand();
     }
 
+    // Modified by Yasuhiro Yamakawa on 2026-05-14
+    // Adapted to the new operator handling logic 
+    function clearClicked() {
+        clearOperator();
+        clearEntryClicked();
+    }
+
+    // Modified by Yasuhiro Yamakawa on 2026-05-14
+    // Adapted to the new operator handling logic.
     function allClearClicked() {
         clearClicked();
         result = 0;
-        hasResult = false;
     }
 
     function algarismCount(number) {
@@ -190,10 +228,14 @@ PlasmoidItem {
                             Math.floor(Math.log(Math.abs(number))/Math.log(10)) + 1;
     }
 
+    // Modified by Yasuhiro Yamakawa on 2026-05-14
+    // Ensured that the clipboard functions work correctly.
     function copyToClipboard() {
-        display.selectAll();
-        display.copy();
-        display.deselect();
+        var text = formatNumber(showingInput ? operand : result);
+        dummyTextEditForPasting.text = text;
+        dummyTextEditForPasting.selectAll();
+        dummyTextEditForPasting.copy();
+        dummyTextEditForPasting.deselect();
     }
 
     function pasteFromClipboard() {
@@ -223,8 +265,16 @@ PlasmoidItem {
         return new RegExp('^[0-9]*[\.,]?[0-9]+$').test(input);
     }
 
-    function displayNumber(number) {
+    // Modified by Yasuhiro Yamakawa on 2026-05-14
+    // Refactored to separate the logic for formatting the number from the display functions,
+    //   improving code clarity and maintainability.
+    function formatNumber(number) {
         var text = number.toLocaleString(Qt.locale(), "g", 14);
+
+        var index = text.indexOf('E');
+        if (index !== -1) {
+            var text = number.toLocaleString(Qt.locale(), "g", 14 - (text.length - index));
+        }   
 
         // Show all decimals including zeroes and show decimalPoint
         if (showingInput && commaPressed) {
@@ -232,20 +282,40 @@ PlasmoidItem {
             if (decimals === 0) {
                 text += Qt.locale().decimalPoint;
             }
+            text = text.substring(0, Math.min(text.length, 15));
         }
-        display.text = text;
 
-        var decimalsToShow = 9;
-        // Decrease precision until the text fits to the display.
-        while (display.contentWidth > display.width && decimalsToShow > 0) {
-            display.text = number.toLocaleString(Qt.locale(), "g", decimalsToShow--);
-        }
+        var regex = new RegExp(Qt.locale().groupSeparator, "g");
+        return text.replace(regex, "\u00a0");
     }
 
-    function divisionByZero() {
+
+    // Removed by Yasuhiro Yamakawa on 2026-05-14
+    // Removed the divisionByZero() function.
+
+    // Added by Yasuhiro Yamakawa on 2026-05-14
+    // Refactored to separate the logic for displaying the result and the operand,
+    //   improving code clarity and maintainability.
+    function displayResult() {
         showingInput = false;
-        showingResult = true;
-        display.text = i18nc("Abbreviation for result (undefined) of division by zero, max. six to nine characters.", "undef");
+        display.text = formatNumber(result);
+    }
+
+    // Added by Yasuhiro Yamakawa on 2026-05-14
+    // Refactored to separate the logic for displaying the result and the operand,
+    //   improving code clarity and maintainability.
+    function displayOperand() {
+        showingInput = true;
+        display.text = formatNumber(operand);
+    }
+
+    // Added by Yasuhiro Yamakawa on 2026-05-14
+    // Refactored to separate the logic for displaying error messages from the display functions,
+    //   improving code clarity and maintainability.
+    function displayError(message) {
+        clearOperator();
+        showingInput = false;
+        display.text = message;
     }
 
     TextEdit {
@@ -291,70 +361,88 @@ PlasmoidItem {
 
             // Modified by Yasuhiro Yamakawa on 2026-05-12 for Qt6 compatibility:
             // Updated all key event handlers (digits and operators) to explicit signal handler syntax.
+            //
+            // Modified by Yasuhiro Yamakawa on 2026-05-14:
+            // Adapted to the new operator handling logic.
+            // Improved readability by adding line breaks.
             Keys.onDigit0Pressed: (event) => {
-                digitClicked(0); zeroButton.forceActiveFocus(Qt.TabFocusReason);
+                digitClicked(0);
+                zeroButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onDigit1Pressed: (event) => {
-                digitClicked(1); oneButton.forceActiveFocus(Qt.TabFocusReason);
+                digitClicked(1);
+                oneButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onDigit2Pressed: (event) => {
-                digitClicked(2); twoButton.forceActiveFocus(Qt.TabFocusReason);
+                digitClicked(2);
+                twoButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onDigit3Pressed: (event) => {
-                digitClicked(3); threeButton.forceActiveFocus(Qt.TabFocusReason);
+                digitClicked(3);
+                threeButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onDigit4Pressed: (event) => {
-                digitClicked(4); fourButton.forceActiveFocus(Qt.TabFocusReason);
+                digitClicked(4);
+                fourButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onDigit5Pressed: (event) => {
-                digitClicked(5); fiveButton.forceActiveFocus(Qt.TabFocusReason);
+                digitClicked(5);
+                fiveButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onDigit6Pressed: (event) => {
-                digitClicked(6); sixButton.forceActiveFocus(Qt.TabFocusReason);
+                digitClicked(6);
+                sixButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onDigit7Pressed: (event) => {
-                digitClicked(7); sevenButton.forceActiveFocus(Qt.TabFocusReason);
+                digitClicked(7);
+                sevenButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onDigit8Pressed: (event) => {
-                digitClicked(8); eightButton.forceActiveFocus(Qt.TabFocusReason);
+                digitClicked(8);
+                eightButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onDigit9Pressed: (event) => {
-                digitClicked(9); nineButton.forceActiveFocus(Qt.TabFocusReason);
+                digitClicked(9);
+                nineButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onEscapePressed: (event) => {
-                allClearClicked(); allClearButton.forceActiveFocus(Qt.TabFocusReason);
+                allClearClicked();
+                allClearButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onDeletePressed: (event) => {
-                clearClicked(); clearButton.forceActiveFocus(Qt.TabFocusReason);
+                // Modified by Yasuhiro Yamakawa on 2026-05-14
+                // Support clear entry (CE) functionality with the Delete key.
+                clearEntryClicked(); 
+                clearButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onPressed: (event) => {
                 switch (event.key) {
                 case Qt.Key_Plus:
-                    setOperator("+");
+                    setOperator(Constants.Operator.Add);
                     plusButton.forceActiveFocus(Qt.TabFocusReason);
                     break;
                 case Qt.Key_Minus:
-                    setOperator("-");
+                    setOperator(Constants.Operator.Subtract);
                     minusButton.forceActiveFocus(Qt.TabFocusReason);
                     break;
                 case Qt.Key_Asterisk:
-                    setOperator("*");
+                    setOperator(Constants.Operator.Multiply);
                     multiplyButton.forceActiveFocus(Qt.TabFocusReason);
                     break;
                 case Qt.Key_Slash:
-                    setOperator("/");
+                    setOperator(Constants.Operator.Divide);
                     divideButton.forceActiveFocus(Qt.TabFocusReason);
                     break;
                 case Qt.Key_Comma:
@@ -369,7 +457,7 @@ PlasmoidItem {
                     break;
                 case Qt.Key_Backspace:
                     deleteDigit();
-                    display.forceActiveFocus(Qt.TabFocusReason);
+                    backspaceButton.forceActiveFocus(Qt.TabFocusReason);
                     break;
                 // Added by Yasuhiro Yamakawa on 2026-05-12
                 // Handles the +/- key found on keyboards like the Dell KB740 (maps to F9).
@@ -394,10 +482,13 @@ PlasmoidItem {
                 // Finalize the event if it was caught by one of the cases above
                 event.accepted = true;
             }
-            // Modified by Yasuhiro Yamakawa on 2026-05-12
+            // Modified by Yasuhiro Yamakawa on 2026-05-12:
             // Don't show highlight on buttons after release keys.
+            //
+            // Modified by Yasuhiro Yamakawa on 2026-05-14:
+            // Fix the wrong focus behavior after key release.
             Keys.onReleased: (event) => {
-                display.forceActiveFocus(Qt.TabFocusReason);
+                mainLayout.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
 
@@ -440,7 +531,8 @@ PlasmoidItem {
             }
 
             // Modified by Yasuhiro Yamakawa on 2026-05-12
-            // Arranged the buttons to match the standard calculator layout and added the new negate button.
+            // Arranged the buttons to match the standard calculator layout and
+            //   added the new negate button.
             GridLayout {
                 id: buttonsGrid;
                 columns: 4;
@@ -472,7 +564,9 @@ PlasmoidItem {
                     KeyNavigation.right: negateButton
 
                     text: i18nc("Text of the clear button", "C");
-                    onClicked: clearClicked();
+                    // Modified by Yasuhiro Yamakawa on 2026-05-14:
+                    // Clear entry (CE) button - clears the current input.
+                    onClicked: clearEntryClicked();
                 }
 
                 // Added by Yasuhiro Yamakawa on 2026-05-12
@@ -498,7 +592,7 @@ PlasmoidItem {
                     KeyNavigation.right: allClearButton
 
                     text: i18nc("Text of the division button", "÷");
-                    onClicked: setOperator("/");
+                    onClicked: setOperator(Constants.Operator.Divide);
                 }
 
 
@@ -547,7 +641,7 @@ PlasmoidItem {
                     KeyNavigation.right: sevenButton
 
                     text: i18nc("Text of the multiplication button", "\u2002×\u2002");
-                    onClicked: setOperator("*");
+                    onClicked: setOperator(Constants.Operator.Multiply);
                 }
 
 
@@ -596,7 +690,7 @@ PlasmoidItem {
                     KeyNavigation.right: fourButton
 
                     text: i18nc("Text of the minus button", "−");
-                    onClicked: setOperator("-");
+                    onClicked: setOperator(Constants.Operator.Subtract);
                 }
 
 
@@ -646,7 +740,7 @@ PlasmoidItem {
 
                     Layout.rowSpan: 2
                     text: i18nc("Text of the plus button", "+");
-                    onClicked: setOperator("+");
+                    onClicked: setOperator(Constants.Operator.Add);
                 }
 
                 CalcButton {
