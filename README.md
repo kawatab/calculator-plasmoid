@@ -7,11 +7,9 @@ A functional and lightweight calculator plasmoid for the KDE Plasma 6 desktop en
 - **Plasma 6 / Qt6 Compatibility:** Updated metadata format and QML event handling to ensure seamless performance on the latest KDE environments.
 - **Hardware Optimization:** Dedicated logic to handle specific key events, ensuring a smooth experience with physical calculator keys on external keyboards.
 
-## Development Context: The Dell KB740 "F9" Quirk
+## Development Context: Supporting the F9 Scancode Convention
 
-The primary catalyst for this fork was a hardware-specific behavior discovered with the Dell KB740 keyboard. On this model, the dedicated +/- key (intended for sign inversion) shares the same scancode as the F9 function key.
-
-In many default calculator applications, this key goes unrecognized. This version specifically implements a fix that maps the F9/Sign-key event to the sign-toggle logic within the QML interface. This ensures that the Dell KB740's calculator keys perform their intended functions out of the box on KDE Plasma 6.
+The motivation for this fork came after I switched to a new keyboard featuring a dedicated +/- key. I discovered that these keys commonly use the F9 scancode—a detail I had never noticed with my previous keyboard. Since this key is often unrecognized by default, I implemented a fix that maps the F9 event to the sign-toggle logic in the QML interface, ensuring "out-of-the-box" compatibility for most hardware calculator keys on KDE Plasma 6.
 
 ## Installation
 
