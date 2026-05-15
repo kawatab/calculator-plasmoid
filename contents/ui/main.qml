@@ -17,6 +17,7 @@
  *   - Updated button layout to match standard calculator design.
  *   - Improved code readability and maintainability with an enum for operators.
  */
+pragma ComponentBehavior: Bound
 
 import QtQuick 2.15
 import QtQuick.Layouts 1.3
@@ -24,8 +25,7 @@ import QtQuick.Controls 2.5 as QQC2
 import org.kde.kirigami 2.20 as Kirigami
 import org.kde.ksvg 1.0 as KSvg
 import org.kde.plasma.components 3.0 as PlasmaComponents
-import org.kde.plasma.core 2.0 as PlasmaCore
-import org.kde.plasma.plasmoid
+import org.kde.plasma.plasmoid 2.0
 
 PlasmoidItem {
     id: main;
@@ -366,71 +366,71 @@ PlasmoidItem {
             // Adapted to the new operator handling logic.
             // Improved readability by adding line breaks.
             Keys.onDigit0Pressed: (event) => {
-                digitClicked(0);
+                main.digitClicked(0);
                 zeroButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onDigit1Pressed: (event) => {
-                digitClicked(1);
+                main.digitClicked(1);
                 oneButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onDigit2Pressed: (event) => {
-                digitClicked(2);
+                main.digitClicked(2);
                 twoButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onDigit3Pressed: (event) => {
-                digitClicked(3);
+                main.digitClicked(3);
                 threeButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onDigit4Pressed: (event) => {
-                digitClicked(4);
+                main.digitClicked(4);
                 fourButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onDigit5Pressed: (event) => {
-                digitClicked(5);
+                main.digitClicked(5);
                 fiveButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onDigit6Pressed: (event) => {
-                digitClicked(6);
+                main.digitClicked(6);
                 sixButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onDigit7Pressed: (event) => {
-                digitClicked(7);
+                main.digitClicked(7);
                 sevenButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onDigit8Pressed: (event) => {
-                digitClicked(8);
+                main.digitClicked(8);
                 eightButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onDigit9Pressed: (event) => {
-                digitClicked(9);
+                main.digitClicked(9);
                 nineButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onEscapePressed: (event) => {
-                allClearClicked();
+                main.allClearClicked();
                 allClearButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onDeletePressed: (event) => {
                 // Modified by Yasuhiro Yamakawa on 2026-05-14
                 // Support clear entry (CE) functionality with the Delete key.
-                clearEntryClicked(); 
+                main.clearEntryClicked(); 
                 clearButton.forceActiveFocus(Qt.TabFocusReason);
                 event.accepted = true;
             }
             Keys.onPressed: (event) => {
                 switch (event.key) {
                 case Qt.Key_Plus:
-                    setOperator(Constants.Operator.Add);
+                    main.setOperator(Constants.Operator.Add);
                     plusButton.forceActiveFocus(Qt.TabFocusReason);
                     break;
                 case Qt.Key_Minus:
@@ -552,7 +552,7 @@ PlasmoidItem {
                     KeyNavigation.right: clearButton
 
                     text: i18nc("Text of the all clear button", "AC");
-                    onClicked: allClearClicked();
+                    onClicked: main.allClearClicked();
                 }
 
                 CalcButton {
@@ -566,7 +566,7 @@ PlasmoidItem {
                     text: i18nc("Text of the clear button", "C");
                     // Modified by Yasuhiro Yamakawa on 2026-05-14:
                     // Clear entry (CE) button - clears the current input.
-                    onClicked: clearEntryClicked();
+                    onClicked: main.clearEntryClicked();
                 }
 
                 // Added by Yasuhiro Yamakawa on 2026-05-12
@@ -580,7 +580,7 @@ PlasmoidItem {
                     KeyNavigation.right: divideButton
 
                     text: i18nc("Text of the negate button", "+/−");
-                    onClicked: negate();
+                    onClicked: main.negate();
                 }
 
                 CalcButton {
@@ -592,7 +592,7 @@ PlasmoidItem {
                     KeyNavigation.right: allClearButton
 
                     text: i18nc("Text of the division button", "÷");
-                    onClicked: setOperator(Constants.Operator.Divide);
+                    onClicked: main.setOperator(Constants.Operator.Divide);
                 }
 
 
@@ -605,7 +605,7 @@ PlasmoidItem {
                     KeyNavigation.right: eightButton
 
                     text: "\u20027\u2002";
-                    onClicked: digitClicked(7);
+                    onClicked: main.digitClicked(7);
                 }
 
                 CalcButton {
@@ -617,7 +617,7 @@ PlasmoidItem {
                     KeyNavigation.right: nineButton
 
                     text: "\u20028\u2002";
-                    onClicked: digitClicked(8);
+                    onClicked: main.digitClicked(8);
                 }
 
                 CalcButton {
@@ -629,7 +629,7 @@ PlasmoidItem {
                     KeyNavigation.right: multiplyButton
 
                     text: "\u20029\u2002";
-                    onClicked: digitClicked(9);
+                    onClicked: main.digitClicked(9);
                 }
 
                 CalcButton {
@@ -641,7 +641,7 @@ PlasmoidItem {
                     KeyNavigation.right: sevenButton
 
                     text: i18nc("Text of the multiplication button", "\u2002×\u2002");
-                    onClicked: setOperator(Constants.Operator.Multiply);
+                    onClicked: main.setOperator(Constants.Operator.Multiply);
                 }
 
 
@@ -654,7 +654,7 @@ PlasmoidItem {
                     KeyNavigation.right: fiveButton
 
                     text: "\u20024\u2002";
-                    onClicked: digitClicked(4);
+                    onClicked: main.digitClicked(4);
                 }
 
                 CalcButton {
@@ -666,7 +666,7 @@ PlasmoidItem {
                     KeyNavigation.right: sixButton
 
                     text: "\u20025\u2002";
-                    onClicked: digitClicked(5);
+                    onClicked: main.digitClicked(5);
                 }
 
                 CalcButton {
@@ -678,7 +678,7 @@ PlasmoidItem {
                     KeyNavigation.right: minusButton
 
                     text: "\u20026\u2002";
-                    onClicked: digitClicked(6);
+                    onClicked: main.digitClicked(6);
                 }
 
                 CalcButton {
@@ -690,7 +690,7 @@ PlasmoidItem {
                     KeyNavigation.right: fourButton
 
                     text: i18nc("Text of the minus button", "−");
-                    onClicked: setOperator(Constants.Operator.Subtract);
+                    onClicked: main.setOperator(Constants.Operator.Subtract);
                 }
 
 
@@ -703,7 +703,7 @@ PlasmoidItem {
                     KeyNavigation.right: twoButton
 
                     text: "\u20021\u2002";
-                    onClicked: digitClicked(1);
+                    onClicked: main.digitClicked(1);
                 }
 
                 CalcButton {
@@ -715,7 +715,7 @@ PlasmoidItem {
                     KeyNavigation.right: threeButton
 
                     text: "\u20022\u2002";
-                    onClicked: digitClicked(2);
+                    onClicked: main.digitClicked(2);
                 }
 
                 CalcButton {
@@ -727,7 +727,7 @@ PlasmoidItem {
                     KeyNavigation.right: plusButton
 
                     text: "\u20023\u2002";
-                    onClicked: digitClicked(3);
+                    onClicked: main.digitClicked(3);
                 }
 
                 CalcButton {
@@ -753,7 +753,7 @@ PlasmoidItem {
 
 
                     text: "\u20020\u2002";
-                    onClicked: digitClicked(0);
+                    onClicked: main.digitClicked(0);
                 }
 
                 CalcButton {
@@ -765,7 +765,7 @@ PlasmoidItem {
                     KeyNavigation.right: ansButton
 
                     text: Qt.locale().decimalPoint;
-                    onClicked: decimalClicked();
+                    onClicked: main.decimalClicked();
                 }
 
                 CalcButton {
@@ -777,7 +777,7 @@ PlasmoidItem {
                     KeyNavigation.right: plusButton
                     
                     text: i18nc("Text of the equals button", "=");
-                    onClicked: equalsClicked();
+                    onClicked: main.equalsClicked();
                 }
             }
         }
