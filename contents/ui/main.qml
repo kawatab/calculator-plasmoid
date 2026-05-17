@@ -16,6 +16,7 @@
  *   - Added support for sign inversion (negate) and clear entry (CE) functionality.
  *   - Updated button layout to match standard calculator design.
  *   - Improved code readability and maintainability with an enum for operators.
+ *   - Migrated from native JavaScript numbers to the DecimalNumber class.
  */
 pragma ComponentBehavior: Bound
 
@@ -40,13 +41,10 @@ PlasmoidItem {
     // Changed operator property to an enum for better readability and maintainability.
     // Removed hasResult and showingResult properties as they are no longer needed
     //   with the new operator handling logic.
-    property real result: 0;
+    property DecimalNumber result: DecimalNumber {};
     property bool showingInput: true;
     property int operator: Constants.Operator.None;
-    property real operand: 0;
-    property bool commaPressed: false;
-    property int decimals: 0;
-    property int inputSize: 0;
+    property DecimalNumber operand: DecimalNumber {};
     property TextEdit display
 
     readonly property int maxInputLength: 18; // More than that and the number notation
@@ -69,18 +67,9 @@ PlasmoidItem {
             }
         }
 
-        if (commaPressed) {
-            ++decimals;
-            var tenToTheDecimals = Math.pow(10, decimals);
-            operand = Math.abs(operand); // Remove the sign
-            operand = (operand * tenToTheDecimals + digit) / tenToTheDecimals;
-        } else {
-            operand = Math.abs(operand); // Remove the sign
-            operand = operand * 10 + digit;
-        }
+        operand.appendDigit(digit);
 
         displayOperand();
-        ++inputSize;
     }
 
     // Modified by Yasuhiro Yamakawa on 2026-05-14
@@ -91,20 +80,7 @@ PlasmoidItem {
     // Inverts the current result if no input has started, or inverts the current operand being typed.
     function deleteDigit() {
         if (showingInput) {
-            if (commaPressed) {
-                if (decimals === 0) {
-                    commaPressed = false;
-                } else if (decimals > 0) {
-                    operand = Math.abs(operand); // Remove the sign
-                    operand -= operand % Math.pow(10, 1 - decimals);
-                    --decimals;
-                    --inputSize;
-                }
-            } else if (inputSize > 0) {
-                operand = Math.abs(operand); // Remove the sign
-                operand = (operand - (operand % 10)) / 10;
-                --inputSize;
-            }
+            operand.deleteDigit();
         } else {
             clearEntryClicked();
         }
@@ -120,7 +96,7 @@ PlasmoidItem {
             showingInput = true;
         }
 
-        commaPressed = true;
+        operand.appendDecimalPoint();
 
         displayOperand();
     }
@@ -130,23 +106,23 @@ PlasmoidItem {
     function doOperation() {
         switch (operator) {
         case Constants.Operator.None:
-            result = operand;
+            result.assign(operand);
             break;
         case Constants.Operator.Add:
-            result += operand;
+            result.add(operand);
             break;
         case Constants.Operator.Subtract:
-            result -= operand;
+            result.subtract(operand);
             break;
         case Constants.Operator.Multiply:
-            result *= operand;
+            result.multiply(operand);
             break;
         case Constants.Operator.Divide:
-            if (operand === 0) {
+            if (operand.isZero()) {
                 displayError(i18nc("Error message for division by zero, max. six to nine characters.", "Div/0"));
                 return;
             }
-            result /= operand;
+            result.divide(operand);
             break;
         }
 
@@ -154,10 +130,7 @@ PlasmoidItem {
     }
 
     function clearOperand() {
-        operand = 0;
-        commaPressed = false;
-        decimals = 0;
-        inputSize = 0;
+        operand.clear();
     }
 
     // Added by Yasuhiro Yamakawa on 2026-05-14
@@ -183,10 +156,10 @@ PlasmoidItem {
     // Support sign inversion
     function negate() {
         if (showingInput) {
-            operand = -operand;
+            operand.negate();
             displayOperand();
         } else {
-            result = -result;
+            result.negate();
             displayResult();
         }
     }
@@ -220,25 +193,22 @@ PlasmoidItem {
     // Adapted to the new operator handling logic.
     function allClearClicked() {
         clearClicked();
-        result = 0;
-    }
-
-    function algarismCount(number) {
-        return number == 0? 1 :
-                            Math.floor(Math.log(Math.abs(number))/Math.log(10)) + 1;
+        result.clear();
     }
 
     // Modified by Yasuhiro Yamakawa on 2026-05-14
     // Ensured that the clipboard functions work correctly.
     function copyToClipboard() {
-        var text = formatNumber(showingInput ? operand : result);
+        var text = showingInput ? operand.toFormatNumber(showingInput) : result.toFormatNumber(showingInput);
+        text = text.replace(/\u2009/g, "");
         dummyTextEditForPasting.text = text;
         dummyTextEditForPasting.selectAll();
         dummyTextEditForPasting.copy();
-        dummyTextEditForPasting.deselect();
+        dummyTextEditForPasting.clear();
     }
 
     function pasteFromClipboard() {
+        dummyTextEditForPasting.clear()
         dummyTextEditForPasting.paste()
         var content = dummyTextEditForPasting.text
         dummyTextEditForPasting.clear()
@@ -247,6 +217,7 @@ PlasmoidItem {
         }
 
         // check if the clipboard content as a whole is a valid number (without sign, no operators, ...)
+        main.clearEntryClicked();
         if (isValidClipboardInput(content)) {
             var digitRegex = new RegExp('^[0-9]$');
             var decimalRegex = new RegExp('^[\.,]$');
@@ -265,31 +236,6 @@ PlasmoidItem {
         return new RegExp('^[0-9]*[\.,]?[0-9]+$').test(input);
     }
 
-    // Modified by Yasuhiro Yamakawa on 2026-05-14
-    // Refactored to separate the logic for formatting the number from the display functions,
-    //   improving code clarity and maintainability.
-    function formatNumber(number) {
-        var text = number.toLocaleString(Qt.locale(), "g", 14);
-
-        var index = text.indexOf('E');
-        if (index !== -1) {
-            var text = number.toLocaleString(Qt.locale(), "g", 14 - (text.length - index));
-        }   
-
-        // Show all decimals including zeroes and show decimalPoint
-        if (showingInput && commaPressed) {
-            text = number.toLocaleString(Qt.locale(), "f", decimals);
-            if (decimals === 0) {
-                text += Qt.locale().decimalPoint;
-            }
-            text = text.substring(0, Math.min(text.length, 15));
-        }
-
-        var regex = new RegExp(Qt.locale().groupSeparator, "g");
-        return text.replace(regex, "\u00a0");
-    }
-
-
     // Removed by Yasuhiro Yamakawa on 2026-05-14
     // Removed the divisionByZero() function.
 
@@ -298,7 +244,7 @@ PlasmoidItem {
     //   improving code clarity and maintainability.
     function displayResult() {
         showingInput = false;
-        display.text = formatNumber(result);
+        display.text = result.toFormatNumber(showingInput);
     }
 
     // Added by Yasuhiro Yamakawa on 2026-05-14
@@ -306,7 +252,7 @@ PlasmoidItem {
     //   improving code clarity and maintainability.
     function displayOperand() {
         showingInput = true;
-        display.text = formatNumber(operand);
+        display.text =operand.toFormatNumber(showingInput);
     }
 
     // Added by Yasuhiro Yamakawa on 2026-05-14
@@ -332,7 +278,7 @@ PlasmoidItem {
         Layout.fillHeight: true
     
         // Override the contentItem once here
-        contentItem: QQC2.Label {
+        contentItem: PlasmaComponents.Label {
             text: parent.text
             font: parent.font
             color: Kirigami.Theme.textColor
@@ -434,43 +380,42 @@ PlasmoidItem {
                     plusButton.forceActiveFocus(Qt.TabFocusReason);
                     break;
                 case Qt.Key_Minus:
-                    setOperator(Constants.Operator.Subtract);
+                    main.setOperator(Constants.Operator.Subtract);
                     minusButton.forceActiveFocus(Qt.TabFocusReason);
                     break;
                 case Qt.Key_Asterisk:
-                    setOperator(Constants.Operator.Multiply);
+                    main.setOperator(Constants.Operator.Multiply);
                     multiplyButton.forceActiveFocus(Qt.TabFocusReason);
                     break;
                 case Qt.Key_Slash:
-                    setOperator(Constants.Operator.Divide);
+                    main.setOperator(Constants.Operator.Divide);
                     divideButton.forceActiveFocus(Qt.TabFocusReason);
                     break;
                 case Qt.Key_Comma:
                 case Qt.Key_Period:
-                    decimalClicked();
+                    main.decimalClicked();
                     decimalButton.forceActiveFocus(Qt.TabFocusReason);
                     break;
                 case Qt.Key_Equal:
                 case Qt.Key_Return:
                 case Qt.Key_Enter:
-                    equalsClicked();
+                    main.equalsClicked();
                     break;
                 case Qt.Key_Backspace:
-                    deleteDigit();
-                    backspaceButton.forceActiveFocus(Qt.TabFocusReason);
+                    main.deleteDigit();
                     break;
                 // Added by Yasuhiro Yamakawa on 2026-05-12
                 // Handles the +/- key found on keyboards like the Dell KB740 (maps to F9).
                 case Qt.Key_F9:
-                    negate();
+                    main.negate();
                     negateButton.forceActiveFocus(Qt.TabFocusReason);
                     break;
                 default:
                     if (event.matches(StandardKey.Copy)) {
-                        copyToClipboard();
+                        main.copyToClipboard();
                         break;
                     } else if (event.matches(StandardKey.Paste)) {
-                        pasteFromClipboard();
+                        main.pasteFromClipboard();
                         break;
                     }
                     // Modified by Yasuhiro Yamakawa on 2026-05-12 for Qt6 compatibility:
@@ -740,7 +685,7 @@ PlasmoidItem {
 
                     Layout.rowSpan: 2
                     text: i18nc("Text of the plus button", "+");
-                    onClicked: setOperator(Constants.Operator.Add);
+                    onClicked: main.setOperator(Constants.Operator.Add);
                 }
 
                 CalcButton {
