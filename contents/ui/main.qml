@@ -17,6 +17,9 @@
  *   - Updated button layout to match standard calculator design.
  *   - Improved code readability and maintainability with an enum for operators.
  *   - Migrated from native JavaScript numbers to the DecimalNumber class.
+ *   - Added support for calculator memory functions (M+, M-, MRC).
+ *   - Added support for root operation.
+ *   - Emulated Casio-style behavior.
  */
 pragma ComponentBehavior: Bound
 
@@ -29,14 +32,14 @@ import org.kde.plasma.components 3.0 as PlasmaComponents
 import org.kde.plasma.plasmoid 2.0
 
 PlasmoidItem {
-    id: main;
+    id: main
 
     switchWidth: Kirigami.Units.gridUnit * 7
     switchHeight: Math.round(Kirigami.Units.gridUnit * 6)
 
-    property DecimalNumber result: DecimalNumber {};
-    property int displayValue: Constants.RegisterRole.Operand;
-    property int operator: Constants.Operator.None;
+    property DecimalNumber result: DecimalNumber {}
+    property int displayValue: Constants.RegisterRole.Operand
+    property int operator: Constants.Operator.None
     property DecimalNumber operand: DecimalNumber {}
     property DecimalNumber memory: DecimalNumber {}
     property bool hasMemory: false
@@ -348,8 +351,8 @@ PlasmoidItem {
             anchors.fill: parent
             anchors.margins: 4
 
-            focus: true;
-            spacing: 4;
+            focus: true
+            spacing: 4
 
             // Modified by Yasuhiro Yamakawa on 2026-05-12 for Qt6 compatibility:
             // Updated all key event handlers (digits and operators) to explicit signal handler syntax.
@@ -484,11 +487,11 @@ PlasmoidItem {
             }
 
             KSvg.FrameSvgItem {
-                id: displayFrame;
+                id: displayFrame
                 Layout.fillWidth: true
-                Layout.minimumHeight: 2 * display.font.pixelSize;
-                imagePath: "widgets/frame";
-                prefix: "plain";
+                Layout.minimumHeight: 2 * display.font.pixelSize
+                imagePath: "widgets/frame"
+                prefix: "plain"
 
                 ColumnLayout {
                     // Fill the frame completely while respecting the SVG theme borders
@@ -509,15 +512,15 @@ PlasmoidItem {
                             id: memoryIndicator
                             text: "M"
 
-                            Layout.fillHeight: true;
+                            Layout.fillHeight: true
                             Layout.preferredWidth: height
                             Layout.leftMargin: displayFrame.width * 0.1
 
-                            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1;
-                            font.weight: Font.Bold;
+                            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1
+                            font.weight: Font.Bold
                             Kirigami.Theme.colorSet: Kirigami.Theme.View
                             color: Kirigami.Theme.textColor
-                            verticalAlignment: TextEdit.AlignVCenter;
+                            verticalAlignment: TextEdit.AlignVCenter
                             readOnly: true
                             opacity: main.hasMemory ? 1.0 : 0.0
 
@@ -529,20 +532,18 @@ PlasmoidItem {
                             id: kCalculationIndicator
                             text: "K"
                     
-                            Layout.fillHeight: true;
+                            Layout.fillHeight: true
                             Layout.preferredWidth: height
                             Layout.leftMargin: displayFrame.width * 0.2
                             rightPadding: 0
 
-                            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1;
-                            font.weight: Font.Bold;
+                            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1
+                            font.weight: Font.Bold
                             Kirigami.Theme.colorSet: Kirigami.Theme.View
                             color: Kirigami.Theme.textColor
-                            verticalAlignment: TextEdit.AlignVCenter;
-                            readOnly: true;
+                            verticalAlignment: TextEdit.AlignVCenter
+                            readOnly: true
                             opacity: main.operator === Constants.Operator.Add ? 1.0 : 0.0
-
-                            // focus: main.expanded
 
                             Accessible.name: text
                             Accessible.description: i18nc("@label Status", "Status")
@@ -550,23 +551,18 @@ PlasmoidItem {
 
                         TextEdit {
                             id: operatorIndicatorAdd
-                            Layout.fillHeight: true;
-                            // Layout.fillWidth: true
-                            // Layout.preferredWidth: contentWidth
+                            Layout.fillHeight: true
                             Layout.preferredWidth: height
                             Layout.leftMargin: displayFrame.width * 0.2
 
-                            text: "\u2795";
-                            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1;
-                            font.weight: Font.Bold;
+                            text: "\u2795"
+                            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1
+                            font.weight: Font.Bold
                             Kirigami.Theme.colorSet: Kirigami.Theme.View
                             color: Kirigami.Theme.textColor
-                            // horizontalAlignment: TextEdit.AlignHCenter
                             verticalAlignment: TextEdit.AlignVCenter
-                            readOnly: true;
+                            readOnly: true
                             opacity: main.operator === Constants.Operator.Add ? 1.0 : 0.0
-
-                            // focus: main.expanded
 
                             Accessible.name: text
                             Accessible.description: i18nc("@label Current Operand", "Apply Plus")
@@ -574,20 +570,18 @@ PlasmoidItem {
 
                         TextEdit {
                             id: operatorIndicatorSubtract
-                            Layout.fillHeight: true;
-                            // Layout.fillWidth: true
-                            // Layout.preferredWidth: contentWidth
+                            Layout.fillHeight: true
                             Layout.preferredWidth: height
                             Layout.leftMargin: displayFrame.width * 0.02
 
-                            text: "\u2796";
-                            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1;
-                            font.weight: Font.Bold;
+                            text: "\u2796"
+                            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1
+                            font.weight: Font.Bold
                             Kirigami.Theme.colorSet: Kirigami.Theme.View
                             color: Kirigami.Theme.textColor
                             // horizontalAlignment: TextEdit.AlignHCenter
                             verticalAlignment: TextEdit.AlignVCenter
-                            readOnly: true;
+                            readOnly: true
                             opacity: main.operator === Constants.Operator.Subtract ? 1.0 : 0.0
 
                             focus: main.expanded
@@ -598,23 +592,19 @@ PlasmoidItem {
 
                         TextEdit {
                             id: operatorIndicatorMultiply
-                            Layout.fillHeight: true;
-                            // Layout.fillWidth: true
-                            // Layout.preferredWidth: contentWidth
+                            Layout.fillHeight: true
                             Layout.preferredWidth: height
                             Layout.leftMargin: displayFrame.width * 0.02
 
-                            text: "\u2715";
-                            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1;
-                            font.weight: Font.Bold;
+                            text: "\u2715"
+                            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1
+                            font.weight: Font.Bold
                             Kirigami.Theme.colorSet: Kirigami.Theme.View
                             color: Kirigami.Theme.textColor
                             // horizontalAlignment: TextEdit.AlignHCenter
                             verticalAlignment: TextEdit.AlignVCenter
-                            readOnly: true;
+                            readOnly: true
                             opacity: main.operator === Constants.Operator.Multiply ? 1.0 : 0.0
-
-                            // focus: main.expanded
 
                             Accessible.name: text
                             Accessible.description: i18nc("@label Status", "Status")
@@ -622,20 +612,17 @@ PlasmoidItem {
 
                         TextEdit {
                             id: operatorIndicatorDivide
-                            Layout.fillHeight: true;
-                            // Layout.fillWidth: true
-                            // Layout.preferredWidth: contentWidth
+                            Layout.fillHeight: true
                             Layout.preferredWidth: height
                             Layout.leftMargin: displayFrame.width * 0.02
 
-                            text: "\u2797";
-                            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1;
-                            font.weight: Font.Bold;
+                            text: "\u2797"
+                            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1
+                            font.weight: Font.Bold
                             Kirigami.Theme.colorSet: Kirigami.Theme.View
                             color: Kirigami.Theme.textColor
-                            // horizontalAlignment: TextEdit.AlignHCenter
                             verticalAlignment: TextEdit.AlignVCenter
-                            readOnly: true;
+                            readOnly: true
                             opacity: main.operator === Constants.Operator.Divide ? 1.0 : 0.0
 
                             // focus: main.expanded
@@ -646,18 +633,18 @@ PlasmoidItem {
                     }
 
                     TextEdit {
-                        id: display;
+                        id: display
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         
-                        text: "0";
-                        font.pointSize: Kirigami.Theme.defaultFont.pointSize * 2;
-                        font.weight: Font.Bold;
+                        text: "0"
+                        font.pointSize: Kirigami.Theme.defaultFont.pointSize * 2
+                        font.weight: Font.Bold
                         Kirigami.Theme.colorSet: Kirigami.Theme.View
                         color: Kirigami.Theme.textColor
-                        horizontalAlignment: TextEdit.AlignRight;
-                        verticalAlignment: TextEdit.AlignVCenter;
-                        readOnly: true;
+                        horizontalAlignment: TextEdit.AlignRight
+                        verticalAlignment: TextEdit.AlignVCenter
+                        readOnly: true
 
                         focus: main.expanded
 
@@ -680,9 +667,9 @@ PlasmoidItem {
             // Arranged the buttons to match the standard calculator layout and
             //   added the new negate button.
             GridLayout {
-                id: buttonsGrid;
-                columns: 4;
-                rows: 5;
+                id: buttonsGrid
+                columns: 4
+                rows: 5
                 columnSpacing: 4
                 rowSpacing: 4
 
@@ -697,8 +684,8 @@ PlasmoidItem {
                     KeyNavigation.left: rootButton
                     KeyNavigation.right: clearButton
 
-                    text: i18nc("Text of the all clear button", "AC");
-                    onClicked: main.allClearClicked();
+                    text: i18nc("Text of the all clear button", "AC")
+                    onClicked: main.allClearClicked()
                 }
 
                 CalcButton {
@@ -709,10 +696,10 @@ PlasmoidItem {
                     KeyNavigation.left: allClearButton
                     KeyNavigation.right: negateButton
 
-                    text: i18nc("Text of the clear button", "C");
+                    text: i18nc("Text of the clear button", "C")
                     // Modified by Yasuhiro Yamakawa on 2026-05-14:
                     // Clear entry (CE) button - clears the current input.
-                    onClicked: main.clearEntryClicked();
+                    onClicked: main.clearEntryClicked()
                 }
 
                 // Added by Yasuhiro Yamakawa on 2026-05-12
@@ -725,8 +712,8 @@ PlasmoidItem {
                     KeyNavigation.left: clearButton
                     KeyNavigation.right: rootButton
 
-                    text: i18nc("Text of the negate button", "+/−");
-                    onClicked: main.negate();
+                    text: i18nc("Text of the negate button", "+/−")
+                    onClicked: main.negate()
                 }
 
                 CalcButton {
@@ -737,8 +724,8 @@ PlasmoidItem {
                     KeyNavigation.left: negateButton
                     KeyNavigation.right: allClearButton
 
-                    text: i18nc("Text of the root button", "√");
-                    onClicked: main.root();
+                    text: i18nc("Text of the root button", "√")
+                    onClicked: main.root()
                 }
 
 
@@ -750,8 +737,8 @@ PlasmoidItem {
                     KeyNavigation.left: divideButton
                     KeyNavigation.right: memoryMinusButton
 
-                    text: i18nc("Text of the memory recall/clear button", "MRC");
-                    onClicked: main.memoryRecallClearClicked();
+                    text: i18nc("Text of the memory recall/clear button", "MRC")
+                    onClicked: main.memoryRecallClearClicked()
                 }
 
                 CalcButton {
@@ -762,8 +749,8 @@ PlasmoidItem {
                     KeyNavigation.left: memoryRecallClearButton
                     KeyNavigation.right: memoryPlusButton
 
-                    text: i18nc("Text of the memory minus button", "M−");
-                    onClicked: main.memoryMinusClicked();
+                    text: i18nc("Text of the memory minus button", "M−")
+                    onClicked: main.memoryMinusClicked()
                 }
 
                 // Added by Yasuhiro Yamakawa on 2026-05-12
@@ -776,8 +763,8 @@ PlasmoidItem {
                     KeyNavigation.left: memoryMinusButton
                     KeyNavigation.right: divideButton
 
-                    text: i18nc("Text of the memory plus button", "M+");
-                    onClicked: main.memoryPlusClicked();
+                    text: i18nc("Text of the memory plus button", "M+")
+                    onClicked: main.memoryPlusClicked()
                 }
 
                 CalcButton {
@@ -788,8 +775,8 @@ PlasmoidItem {
                     KeyNavigation.left: memoryPlusButton
                     KeyNavigation.right: memoryRecallClearButton
 
-                    text: i18nc("Text of the division button", "÷");
-                    onClicked: main.setOperator(Constants.Operator.Divide);
+                    text: i18nc("Text of the division button", "÷")
+                    onClicked: main.setOperator(Constants.Operator.Divide)
                 }
 
 
@@ -801,8 +788,8 @@ PlasmoidItem {
                     KeyNavigation.left: multiplyButton
                     KeyNavigation.right: eightButton
 
-                    text: "\u20027\u2002";
-                    onClicked: main.digitClicked(7);
+                    text: "\u20027\u2002"
+                    onClicked: main.digitClicked(7)
                 }
 
                 CalcButton {
@@ -813,8 +800,8 @@ PlasmoidItem {
                     KeyNavigation.left: sevenButton
                     KeyNavigation.right: nineButton
 
-                    text: "\u20028\u2002";
-                    onClicked: main.digitClicked(8);
+                    text: "\u20028\u2002"
+                    onClicked: main.digitClicked(8)
                 }
 
                 CalcButton {
@@ -825,8 +812,8 @@ PlasmoidItem {
                     KeyNavigation.left: eightButton
                     KeyNavigation.right: multiplyButton
 
-                    text: "\u20029\u2002";
-                    onClicked: main.digitClicked(9);
+                    text: "\u20029\u2002"
+                    onClicked: main.digitClicked(9)
                 }
 
                 CalcButton {
@@ -837,8 +824,8 @@ PlasmoidItem {
                     KeyNavigation.left: nineButton
                     KeyNavigation.right: sevenButton
 
-                    text: i18nc("Text of the multiplication button", "\u2002×\u2002");
-                    onClicked: main.setOperator(Constants.Operator.Multiply);
+                    text: i18nc("Text of the multiplication button", "\u2002×\u2002")
+                    onClicked: main.setOperator(Constants.Operator.Multiply)
                 }
 
 
@@ -850,8 +837,8 @@ PlasmoidItem {
                     KeyNavigation.left: minusButton
                     KeyNavigation.right: fiveButton
 
-                    text: "\u20024\u2002";
-                    onClicked: main.digitClicked(4);
+                    text: "\u20024\u2002"
+                    onClicked: main.digitClicked(4)
                 }
 
                 CalcButton {
@@ -862,8 +849,8 @@ PlasmoidItem {
                     KeyNavigation.left: fourButton
                     KeyNavigation.right: sixButton
 
-                    text: "\u20025\u2002";
-                    onClicked: main.digitClicked(5);
+                    text: "\u20025\u2002"
+                    onClicked: main.digitClicked(5)
                 }
 
                 CalcButton {
@@ -874,8 +861,8 @@ PlasmoidItem {
                     KeyNavigation.left: fiveButton
                     KeyNavigation.right: minusButton
 
-                    text: "\u20026\u2002";
-                    onClicked: main.digitClicked(6);
+                    text: "\u20026\u2002"
+                    onClicked: main.digitClicked(6)
                 }
 
                 CalcButton {
@@ -886,8 +873,8 @@ PlasmoidItem {
                     KeyNavigation.left: sixButton
                     KeyNavigation.right: fourButton
 
-                    text: i18nc("Text of the minus button", "−");
-                    onClicked: main.setOperator(Constants.Operator.Subtract);
+                    text: i18nc("Text of the minus button", "−")
+                    onClicked: main.setOperator(Constants.Operator.Subtract)
                 }
 
 
@@ -899,8 +886,8 @@ PlasmoidItem {
                     KeyNavigation.left: plusButton
                     KeyNavigation.right: twoButton
 
-                    text: "\u20021\u2002";
-                    onClicked: main.digitClicked(1);
+                    text: "\u20021\u2002"
+                    onClicked: main.digitClicked(1)
                 }
 
                 CalcButton {
@@ -911,8 +898,8 @@ PlasmoidItem {
                     KeyNavigation.left: oneButton
                     KeyNavigation.right: threeButton
 
-                    text: "\u20022\u2002";
-                    onClicked: main.digitClicked(2);
+                    text: "\u20022\u2002"
+                    onClicked: main.digitClicked(2)
                 }
 
                 CalcButton {
@@ -923,8 +910,8 @@ PlasmoidItem {
                     KeyNavigation.left: twoButton
                     KeyNavigation.right: plusButton
 
-                    text: "\u20023\u2002";
-                    onClicked: main.digitClicked(3);
+                    text: "\u20023\u2002"
+                    onClicked: main.digitClicked(3)
                 }
 
                 CalcButton {
@@ -936,8 +923,8 @@ PlasmoidItem {
                     KeyNavigation.right: oneButton
 
                     Layout.rowSpan: 2
-                    text: i18nc("Text of the plus button", "+");
-                    onClicked: main.setOperator(Constants.Operator.Add);
+                    text: i18nc("Text of the plus button", "+")
+                    onClicked: main.setOperator(Constants.Operator.Add)
                 }
 
                 CalcButton {
@@ -949,8 +936,8 @@ PlasmoidItem {
                     KeyNavigation.right: decimalButton
 
 
-                    text: "\u20020\u2002";
-                    onClicked: main.digitClicked(0);
+                    text: "\u20020\u2002"
+                    onClicked: main.digitClicked(0)
                 }
 
                 CalcButton {
@@ -961,8 +948,8 @@ PlasmoidItem {
                     KeyNavigation.left: zeroButton
                     KeyNavigation.right: ansButton
 
-                    text: Qt.locale().decimalPoint;
-                    onClicked: main.decimalClicked();
+                    text: Qt.locale().decimalPoint
+                    onClicked: main.decimalClicked()
                 }
 
                 CalcButton {
@@ -973,8 +960,8 @@ PlasmoidItem {
                     KeyNavigation.left: decimalButton
                     KeyNavigation.right: plusButton
                     
-                    text: i18nc("Text of the equals button", "=");
-                    onClicked: main.equalsClicked();
+                    text: i18nc("Text of the equals button", "=")
+                    onClicked: main.equalsClicked()
                 }
             }
         }

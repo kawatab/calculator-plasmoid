@@ -5,12 +5,9 @@
  */
 import QtQuick 2.0
 
-// Container for application constants and enumerations
+// Container for application constants and enumerations.
 QtObject {
-    // Operator enum for calculator operations
-    // Added by Yasuhiro Yamakawa on 2026-05-14:
-    // Replaces the old string-based operator handling with a type-safe enum,
-    // improving code clarity and maintainability.
+    // Operator enum for calculator operations.
     enum Operator { 
         None,
         Add, 
@@ -19,6 +16,7 @@ QtObject {
         Divide 
     }
 
+    // RegisterRole enum to identify the role of registers in calculations.
     enum RegisterRole {
         Operand,
         Result,
