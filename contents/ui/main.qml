@@ -32,34 +32,21 @@ PlasmoidItem {
     id: main;
 
     switchWidth: Kirigami.Units.gridUnit * 7
-    switchHeight: Math.round(Kirigami.Units.gridUnit * 10.5)
+    switchHeight: Math.round(Kirigami.Units.gridUnit * 6)
 
-    // Make the buttons' text labels scale with the widget's size
-    // This is propagated down to all child controls with text
-
-    // Modified by Yasuhiro Yamakawa on 2026-05-14
-    // Changed operator property to an enum for better readability and maintainability.
-    // Removed hasResult and showingResult properties as they are no longer needed
-    //   with the new operator handling logic.
     property DecimalNumber result: DecimalNumber {};
-    property bool showingInput: true;
+    property int displayValue: Constants.RegisterRole.Operand;
     property int operator: Constants.Operator.None;
-    property DecimalNumber operand: DecimalNumber {};
+    property DecimalNumber operand: DecimalNumber {}
+    property DecimalNumber memory: DecimalNumber {}
+    property bool hasMemory: false
+    property bool isKCalculationMode: true
     property TextEdit display
 
-    readonly property int maxInputLength: 18; // More than that and the number notation
-                                              // turns scientific (i.e.: 1.32324e+12).
-                                              // When calculating 1/3 the answer is
-                                              // 18 characters long.
-
-    // Modified by Yasuhiro Yamakawa on 2026-05-14
-    // Adapted to the new operator handling logic.
-    //
-    // Modified by Yasuhiro Yamakawa on 2026-05-12
     // Support sign inversion (Casio style):
     // Inverts the current result if no input has started, or inverts the current operand being typed.
     function digitClicked(digit) {
-        if (!showingInput) {
+        if (displayValue !== Constants.RegisterRole.Operand) {
             if (operator === Constants.Operator.None) {
                 allClearClicked();
             } else {
@@ -79,7 +66,7 @@ PlasmoidItem {
     // Support sign inversion (Casio style):
     // Inverts the current result if no input has started, or inverts the current operand being typed.
     function deleteDigit() {
-        if (showingInput) {
+        if (displayValue === Constants.RegisterRole.Operand) {
             operand.deleteDigit();
         } else {
             clearEntryClicked();
@@ -91,13 +78,11 @@ PlasmoidItem {
     // Modified by Yasuhiro Yamakawa on 2026-05-14
     // Adapted to the new operator handling logic.
     function decimalClicked() {
-        if (!showingInput) {
+        if (displayValue !== Constants.RegisterRole.Operand) {
             clearOperand();
-            showingInput = true;
         }
 
         operand.appendDecimalPoint();
-
         displayOperand();
     }
 
@@ -142,7 +127,7 @@ PlasmoidItem {
     // Modified by Yasuhiro Yamakawa on 2026-05-14
     // Adapted to the new operator handling logic.
     function setOperator(op) {
-        if (showingInput) {
+        if (displayValue !== Constants.RegisterRole.Result) {
             doOperation();
         }
 
@@ -155,7 +140,7 @@ PlasmoidItem {
     // Added by Yasuhiro Yamakawa on 2026-05-12
     // Support sign inversion
     function negate() {
-        if (showingInput) {
+        if (displayValue === Constants.RegisterRole.Operand) {
             operand.negate();
             displayOperand();
         } else {
@@ -164,22 +149,83 @@ PlasmoidItem {
         }
     }
 
+    function root() {
+        if ((displayValue === Constants.RegisterRole.Operand && operand.isNegative()) || (displayValue !== Constants.RegisterRole.Operand && result.isNegative())) {
+            displayError(i18nc("Error message for applying square root negative number.", "ERROR"));
+            return;
+        }
+
+        if (displayValue === Constants.RegisterRole.Operand) {
+            result.assign(operand);
+        }
+
+        result.root();
+        displayResult();
+    }
+
     // Modified by Yasuhiro Yamakawa on 2026-05-14
     // Adapted to the new operator handling logic.
     function equalsClicked() {
-        if (showingInput || operator !== Constants.Operator.None) {
+        if (displayValue !== Constants.RegisterRole.Result || operator !== Constants.Operator.None) {
             doOperation();
             clearOperator();
             clearOperand();
         }
     }
 
-    // Added by Yasuhiro Yamakawa on 2026-05-14
     // Support clear entry (CE) functionality:
     // Clears the current operand being typed without affecting the ongoing calculation or operator.
     function clearEntryClicked() {
         clearOperand();
         displayOperand();
+    }
+
+    function memoryRecallClearClicked() {
+        if (hasMemory) {
+            if (displayValue === Constants.RegisterRole.Memory) {
+                clearMemory();
+            } else if (displayValue === Constants.RegisterRole.Operand) {
+                if (operator === Constants.Operator.None) {
+                    allClearClicked();
+                    operand.assign(memory);
+                    displayOperand();
+                } else {
+                    console.log("Operand and operator");
+                    operand.assign(memory);
+                    displayOperand();
+                }
+                displayValue = Constants.RegisterRole.Memory;
+            } else {
+                if (operator === Constants.Operator.None) {
+                    allClearClicked();
+                    operand.assign(memory);
+                    displayOperand();
+                    displayValue = Constants.RegisterRole.Memory;
+                    console.log("Result and operator");
+                } else {
+                    operand.assign(memory);
+                    displayOperand();
+                    displayValue = Constants.RegisterRole.Memory;
+                }
+            }
+        }
+    }
+
+    function clearMemory() {
+        memory.clear();
+        hasMemory = false;
+    }
+
+    function memoryPlusClicked() {
+        equalsClicked();
+        memory.add(result);
+        hasMemory = true;
+    }
+
+    function memoryMinusClicked() {
+        equalsClicked();
+        memory.subtract(result);
+        hasMemory = true;
     }
 
     // Modified by Yasuhiro Yamakawa on 2026-05-14
@@ -199,7 +245,7 @@ PlasmoidItem {
     // Modified by Yasuhiro Yamakawa on 2026-05-14
     // Ensured that the clipboard functions work correctly.
     function copyToClipboard() {
-        var text = showingInput ? operand.toFormatNumber(showingInput) : result.toFormatNumber(showingInput);
+        let text = displayValue ? operand.toFormatNumber(displayValue) : result.toFormatNumber(displayValue);
         text = text.replace(/\u2009/g, "");
         dummyTextEditForPasting.text = text;
         dummyTextEditForPasting.selectAll();
@@ -210,7 +256,7 @@ PlasmoidItem {
     function pasteFromClipboard() {
         dummyTextEditForPasting.clear()
         dummyTextEditForPasting.paste()
-        var content = dummyTextEditForPasting.text
+        let content = dummyTextEditForPasting.text
         dummyTextEditForPasting.clear()
         if (content != "") {
             content = content.trim();
@@ -219,10 +265,10 @@ PlasmoidItem {
         // check if the clipboard content as a whole is a valid number (without sign, no operators, ...)
         main.clearEntryClicked();
         if (isValidClipboardInput(content)) {
-            var digitRegex = new RegExp('^[0-9]$');
-            var decimalRegex = new RegExp('^[\.,]$');
+            let digitRegex = new RegExp('^[0-9]$');
+            let decimalRegex = new RegExp('^[\.,]$');
 
-            for (var i = 0; i < content.length; i++) {
+            for (let i = 0; i < content.length; i++) {
                 if (digitRegex.test(content[i])) {
                     digitClicked(parseInt(content[i]));
                 } else if (decimalRegex.test(content[i])) {
@@ -243,16 +289,16 @@ PlasmoidItem {
     // Refactored to separate the logic for displaying the result and the operand,
     //   improving code clarity and maintainability.
     function displayResult() {
-        showingInput = false;
-        display.text = result.toFormatNumber(showingInput);
+        displayValue = Constants.RegisterRole.Result;
+        display.text = result.toFormatNumber(displayValue);
     }
 
     // Added by Yasuhiro Yamakawa on 2026-05-14
     // Refactored to separate the logic for displaying the result and the operand,
     //   improving code clarity and maintainability.
     function displayOperand() {
-        showingInput = true;
-        display.text =operand.toFormatNumber(showingInput);
+        displayValue = Constants.RegisterRole.Operand;
+        display.text =operand.toFormatNumber(displayValue);
     }
 
     // Added by Yasuhiro Yamakawa on 2026-05-14
@@ -260,7 +306,7 @@ PlasmoidItem {
     //   improving code clarity and maintainability.
     function displayError(message) {
         clearOperator();
-        showingInput = false;
+        displayValue = Constants.RegisterRole.Result;
         display.text = message;
     }
 
@@ -444,35 +490,190 @@ PlasmoidItem {
                 imagePath: "widgets/frame";
                 prefix: "plain";
 
-                TextEdit {
-                    id: display;
-                    anchors {
-                        fill: parent;
-                        margins: parent.margins.right;
+                ColumnLayout {
+                    // Fill the frame completely while respecting the SVG theme borders
+                    anchors.fill: displayFrame
+                    anchors.leftMargin: displayFrame.margins.left
+                    anchors.rightMargin: displayFrame.margins.right
+                    anchors.topMargin: displayFrame.margins.top
+                    anchors.bottomMargin: displayFrame.margins.bottom
+                    spacing: 0
+
+                    RowLayout {
+                        id: statusRow
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: displayFrame.height * 0.2
+                        spacing: 0
+
+                        TextEdit {
+                            id: memoryIndicator
+                            text: "M"
+
+                            Layout.fillHeight: true;
+                            Layout.preferredWidth: height
+                            Layout.leftMargin: displayFrame.width * 0.1
+
+                            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1;
+                            font.weight: Font.Bold;
+                            Kirigami.Theme.colorSet: Kirigami.Theme.View
+                            color: Kirigami.Theme.textColor
+                            verticalAlignment: TextEdit.AlignVCenter;
+                            readOnly: true
+                            opacity: main.hasMemory ? 1.0 : 0.0
+
+                            Accessible.name: text
+                            Accessible.description: i18nc("@label Status", "Status")
+                        }
+
+                        TextEdit {
+                            id: kCalculationIndicator
+                            text: "K"
+                    
+                            Layout.fillHeight: true;
+                            Layout.preferredWidth: height
+                            Layout.leftMargin: displayFrame.width * 0.2
+                            rightPadding: 0
+
+                            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1;
+                            font.weight: Font.Bold;
+                            Kirigami.Theme.colorSet: Kirigami.Theme.View
+                            color: Kirigami.Theme.textColor
+                            verticalAlignment: TextEdit.AlignVCenter;
+                            readOnly: true;
+                            opacity: main.operator === Constants.Operator.Add ? 1.0 : 0.0
+
+                            // focus: main.expanded
+
+                            Accessible.name: text
+                            Accessible.description: i18nc("@label Status", "Status")
+                        }
+
+                        TextEdit {
+                            id: operatorIndicatorAdd
+                            Layout.fillHeight: true;
+                            // Layout.fillWidth: true
+                            // Layout.preferredWidth: contentWidth
+                            Layout.preferredWidth: height
+                            Layout.leftMargin: displayFrame.width * 0.2
+
+                            text: "\u2795";
+                            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1;
+                            font.weight: Font.Bold;
+                            Kirigami.Theme.colorSet: Kirigami.Theme.View
+                            color: Kirigami.Theme.textColor
+                            // horizontalAlignment: TextEdit.AlignHCenter
+                            verticalAlignment: TextEdit.AlignVCenter
+                            readOnly: true;
+                            opacity: main.operator === Constants.Operator.Add ? 1.0 : 0.0
+
+                            // focus: main.expanded
+
+                            Accessible.name: text
+                            Accessible.description: i18nc("@label Current Operand", "Apply Plus")
+                        }
+
+                        TextEdit {
+                            id: operatorIndicatorSubtract
+                            Layout.fillHeight: true;
+                            // Layout.fillWidth: true
+                            // Layout.preferredWidth: contentWidth
+                            Layout.preferredWidth: height
+                            Layout.leftMargin: displayFrame.width * 0.02
+
+                            text: "\u2796";
+                            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1;
+                            font.weight: Font.Bold;
+                            Kirigami.Theme.colorSet: Kirigami.Theme.View
+                            color: Kirigami.Theme.textColor
+                            // horizontalAlignment: TextEdit.AlignHCenter
+                            verticalAlignment: TextEdit.AlignVCenter
+                            readOnly: true;
+                            opacity: main.operator === Constants.Operator.Subtract ? 1.0 : 0.0
+
+                            focus: main.expanded
+
+                            Accessible.name: text
+                            Accessible.description: i18nc("@label Status", "Status")
+                        }
+
+                        TextEdit {
+                            id: operatorIndicatorMultiply
+                            Layout.fillHeight: true;
+                            // Layout.fillWidth: true
+                            // Layout.preferredWidth: contentWidth
+                            Layout.preferredWidth: height
+                            Layout.leftMargin: displayFrame.width * 0.02
+
+                            text: "\u2715";
+                            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1;
+                            font.weight: Font.Bold;
+                            Kirigami.Theme.colorSet: Kirigami.Theme.View
+                            color: Kirigami.Theme.textColor
+                            // horizontalAlignment: TextEdit.AlignHCenter
+                            verticalAlignment: TextEdit.AlignVCenter
+                            readOnly: true;
+                            opacity: main.operator === Constants.Operator.Multiply ? 1.0 : 0.0
+
+                            // focus: main.expanded
+
+                            Accessible.name: text
+                            Accessible.description: i18nc("@label Status", "Status")
+                        }
+
+                        TextEdit {
+                            id: operatorIndicatorDivide
+                            Layout.fillHeight: true;
+                            // Layout.fillWidth: true
+                            // Layout.preferredWidth: contentWidth
+                            Layout.preferredWidth: height
+                            Layout.leftMargin: displayFrame.width * 0.02
+
+                            text: "\u2797";
+                            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1;
+                            font.weight: Font.Bold;
+                            Kirigami.Theme.colorSet: Kirigami.Theme.View
+                            color: Kirigami.Theme.textColor
+                            // horizontalAlignment: TextEdit.AlignHCenter
+                            verticalAlignment: TextEdit.AlignVCenter
+                            readOnly: true;
+                            opacity: main.operator === Constants.Operator.Divide ? 1.0 : 0.0
+
+                            // focus: main.expanded
+
+                            Accessible.name: text
+                            Accessible.description: i18nc("@label Status", "Status")
+                        }
                     }
-                    text: "0";
-                    font.pointSize: Kirigami.Theme.defaultFont.pointSize * 2;
-                    font.weight: Font.Bold;
-                    Kirigami.Theme.colorSet: Kirigami.Theme.View
-                    color: Kirigami.Theme.textColor
-                    horizontalAlignment: TextEdit.AlignRight;
-                    verticalAlignment: TextEdit.AlignVCenter;
-                    readOnly: true;
 
-                    focus: main.expanded
+                    TextEdit {
+                        id: display;
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        
+                        text: "0";
+                        font.pointSize: Kirigami.Theme.defaultFont.pointSize * 2;
+                        font.weight: Font.Bold;
+                        Kirigami.Theme.colorSet: Kirigami.Theme.View
+                        color: Kirigami.Theme.textColor
+                        horizontalAlignment: TextEdit.AlignRight;
+                        verticalAlignment: TextEdit.AlignVCenter;
+                        readOnly: true;
 
-                    Accessible.name: text
-                    Accessible.description: i18nc("@label calculation result", "Result")
+                        focus: main.expanded
 
-                    Binding {
-                        target: main
-                        property: "display"
-                        value: display
+                        Accessible.name: text
+                        Accessible.description: i18nc("@label calculation result", "Result")
+
+                        Binding {
+                            target: main
+                            property: "display"
+                            value: display
+                        }
                     }
+
+                    // KeyNavigation.up: zeroButton
+                    // KeyNavigation.down: allClearButton
                 }
-
-                KeyNavigation.up: zeroButton
-                KeyNavigation.down: allClearButton
             }
 
             // Modified by Yasuhiro Yamakawa on 2026-05-12
@@ -491,9 +692,9 @@ PlasmoidItem {
                 CalcButton {
                     id: allClearButton
 
-                    KeyNavigation.up: display
-                    KeyNavigation.down: sevenButton
-                    KeyNavigation.left: divideButton
+                    KeyNavigation.up: zeroButton
+                    KeyNavigation.down: memoryRecallClearButton
+                    KeyNavigation.left: rootButton
                     KeyNavigation.right: clearButton
 
                     text: i18nc("Text of the all clear button", "AC");
@@ -503,8 +704,8 @@ PlasmoidItem {
                 CalcButton {
                     id: clearButton
 
-                    KeyNavigation.up: display
-                    KeyNavigation.down: eightButton
+                    KeyNavigation.up: decimalButton
+                    KeyNavigation.down: memoryMinusButton
                     KeyNavigation.left: allClearButton
                     KeyNavigation.right: negateButton
 
@@ -519,22 +720,73 @@ PlasmoidItem {
                 CalcButton {
                     id: negateButton
 
-                    KeyNavigation.up: display
-                    KeyNavigation.down: nineButton
+                    KeyNavigation.up: ansButton
+                    KeyNavigation.down: memoryPlusButton
                     KeyNavigation.left: clearButton
-                    KeyNavigation.right: divideButton
+                    KeyNavigation.right: rootButton
 
                     text: i18nc("Text of the negate button", "+/−");
                     onClicked: main.negate();
                 }
 
                 CalcButton {
-                    id: divideButton
+                    id: rootButton
 
-                    KeyNavigation.up: display
-                    KeyNavigation.down: multiplyButton
+                    KeyNavigation.up: plusButton
+                    KeyNavigation.down: divideButton
                     KeyNavigation.left: negateButton
                     KeyNavigation.right: allClearButton
+
+                    text: i18nc("Text of the root button", "√");
+                    onClicked: main.root();
+                }
+
+
+                CalcButton {
+                    id: memoryRecallClearButton
+
+                    KeyNavigation.up: allClearButton
+                    KeyNavigation.down: sevenButton
+                    KeyNavigation.left: divideButton
+                    KeyNavigation.right: memoryMinusButton
+
+                    text: i18nc("Text of the memory recall/clear button", "MRC");
+                    onClicked: main.memoryRecallClearClicked();
+                }
+
+                CalcButton {
+                    id: memoryMinusButton
+
+                    KeyNavigation.up: clearButton
+                    KeyNavigation.down: eightButton
+                    KeyNavigation.left: memoryRecallClearButton
+                    KeyNavigation.right: memoryPlusButton
+
+                    text: i18nc("Text of the memory minus button", "M−");
+                    onClicked: main.memoryMinusClicked();
+                }
+
+                // Added by Yasuhiro Yamakawa on 2026-05-12
+                // New button for sign inversion (negate).
+                CalcButton {
+                    id: memoryPlusButton
+
+                    KeyNavigation.up: negateButton
+                    KeyNavigation.down: nineButton
+                    KeyNavigation.left: memoryMinusButton
+                    KeyNavigation.right: divideButton
+
+                    text: i18nc("Text of the memory plus button", "M+");
+                    onClicked: main.memoryPlusClicked();
+                }
+
+                CalcButton {
+                    id: divideButton
+
+                    KeyNavigation.up: rootButton
+                    KeyNavigation.down: multiplyButton
+                    KeyNavigation.left: memoryPlusButton
+                    KeyNavigation.right: memoryRecallClearButton
 
                     text: i18nc("Text of the division button", "÷");
                     onClicked: main.setOperator(Constants.Operator.Divide);
@@ -679,7 +931,7 @@ PlasmoidItem {
                     id: plusButton
 
                     KeyNavigation.up: minusButton
-                    KeyNavigation.down: display
+                    KeyNavigation.down: rootButton
                     KeyNavigation.left: threeButton
                     KeyNavigation.right: oneButton
 
@@ -692,7 +944,7 @@ PlasmoidItem {
                     id: zeroButton
 
                     KeyNavigation.up: oneButton
-                    KeyNavigation.down: display
+                    KeyNavigation.down: allClearButton
                     KeyNavigation.left: plusButton
                     KeyNavigation.right: decimalButton
 
@@ -705,7 +957,7 @@ PlasmoidItem {
                     id: decimalButton
 
                     KeyNavigation.up: twoButton
-                    KeyNavigation.down: display
+                    KeyNavigation.down: clearButton
                     KeyNavigation.left: zeroButton
                     KeyNavigation.right: ansButton
 
@@ -717,7 +969,7 @@ PlasmoidItem {
                     id: ansButton
 
                     KeyNavigation.up: threeButton
-                    KeyNavigation.down: display
+                    KeyNavigation.down: negateButton
                     KeyNavigation.left: decimalButton
                     KeyNavigation.right: plusButton
                     

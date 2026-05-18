@@ -31,6 +31,10 @@ QtObject {
         return mantissa === 0;
     }
 
+    function isNegative() {
+        return mantissa < 0;
+    }
+
     function clear() {
         mantissa = 0;
         exponent = 0;
@@ -146,6 +150,35 @@ QtObject {
         mantissa = -mantissa;
     }
 
+    function root() {
+        if (mantissa < 0) {
+            clear();
+            // TODO: negative number error handling
+            return;
+        } 
+
+        // Fixes convergence issue: The calculation should round to 1 but fails to 
+        // hit it exactly due to float precision limits.
+        if (mantissa === 100000000001 && exponent === -11 ||
+            mantissa === 999999999999 && exponent === -12) {
+            mantissa = 1e11;
+            exponent = -11;
+            return;
+        }
+
+        let tempMantissa = mantissa;
+        let tempExponent = exponent;
+
+        if (Math.abs(tempExponent) % 2 === 1) {
+            tempMantissa = tempMantissa * 10;
+            --tempExponent;
+        }
+
+        mantissa = Math.sqrt(tempMantissa);
+        exponent = tempExponent / 2;
+        normalize();
+    }
+
     function appendDigit(digit) {
         if (commaPressed) {
             appendDecimalDigit(digit);
@@ -234,11 +267,10 @@ QtObject {
         }
     }
 
-    function toFormatNumber(showingInput) {
-        console.log("num: " + (mantissa * Math.pow(10, exponent)) + ", man: " + mantissa + ", exp: " + exponent + ", caret: " + caretPosition);
+    function toFormatNumber(displayValue) {
         var text = "";
         // Show all decimals including zeroes and show decimalPoint
-        if (showingInput && commaPressed) {
+        if (displayValue === Constants.RegisterRole.Operand && commaPressed) {
             if (mantissa === 0) {
                 text = insertSeparatorToFractionPart("0." + "0".repeat(caretPosition));
             } else {
@@ -249,6 +281,29 @@ QtObject {
                     text += Qt.locale().decimalPoint;
                 }
             }
+        } else if (exponent > 0) {
+            text = "OVERFLOW";
+        } else if (exponent > -precision) {
+            let temp = (mantissa / Math.pow(10, -exponent)).toLocaleString(Qt.locale(), "g", precision);
+            text = insertSeparatorToFractionPart(temp);
+        } else {
+            text = (mantissa / Math.pow(10, -exponent)).toLocaleString(Qt.locale(), "f", precision);
+            if (mantissa < 0) {
+                text = text.substring(0, precision + 2);
+            } else {
+                text = text.substring(0, precision + 1);
+            }
+
+            text = text.replace(/0+$/, "");
+
+            if (text[text.length - 1] === ".") {
+                text = "0";
+            } else {
+                text = insertSeparatorToFractionPart(text);
+            }
+        }
+        /*
+        // for experiment: Allow scientific notation for numbers.
         } else if (exponent > 0) {
             text = formatToScientificString();
         } else if (exponent > -precision) {
@@ -265,8 +320,8 @@ QtObject {
         } else {
             text = formatToScientificString();
         }
+        */
 
-        console.log("number=" + text);
         var regex = new RegExp(Qt.locale().groupSeparator, "g");
         return text.replace(regex, "\u2009");
     }
@@ -287,7 +342,7 @@ QtObject {
     function formatToScientificString() {
         let normalizedMantissa = (mantissa / Math.pow(10, precision - 1));
         let text = normalizedMantissa.toLocaleString(Qt.locale(), "g", precision);
-        let normalizedExponent = (exponent + precision - 1);
+        let normalizedExponent = exponent + precision - 1;
         return insertSeparatorToFractionPart(text) + (normalizedExponent < 0 ? "E" : "E+") + normalizedExponent.toString();
     }
 

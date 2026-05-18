@@ -18,4 +18,10 @@ QtObject {
         Multiply, 
         Divide 
     }
+
+    enum RegisterRole {
+        Operand,
+        Result,
+        Memory
+    }
 }
