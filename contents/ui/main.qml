@@ -43,14 +43,43 @@ PlasmoidItem {
     property DecimalNumber operand: DecimalNumber {}
     property DecimalNumber memory: DecimalNumber {}
     property bool hasMemory: false
-    property bool isKCalculationMode: true
+    property bool isKCalculationMode: false
     property TextEdit display
 
-    // Support sign inversion (Casio style):
-    // Inverts the current result if no input has started, or inverts the current operand being typed.
+    function isDisplayedNumberEditable() {
+        return displayValue === Constants.RegisterRole.Operand;
+    }
+
+    function isDisplayedNumberReadOnly() {
+        return displayValue !== Constants.RegisterRole.Operand;
+    }
+
+    function isOperandDisplayed() {
+        return displayValue !== Constants.RegisterRole.Result;
+    }
+
+    function isResultDisplayed() {
+        return displayValue === Constants.RegisterRole.Result;
+    }
+
+    function isMemoryDisplayed() {
+        return displayValue === Constants.RegisterRole.Memory
+    }
+
+    function hasOperator() {
+        return operator !== Constants.Operator.None;
+    }
+
+    function hasNoOperator() {
+        return operator === Constants.Operator.None;
+    }
+
+    // Support digit input functionality:
+    // If the displayed number is read-only (result), start a new entry by clearing the current
+    // result if no operator is pending, or clearing the current operand if an operator is pending.
     function digitClicked(digit) {
-        if (displayValue !== Constants.RegisterRole.Operand) {
-            if (operator === Constants.Operator.None) {
+        if (isDisplayedNumberReadOnly()) {
+            if (hasNoOperator()) {
                 allClearClicked();
             } else {
                 clearOperand();
@@ -58,35 +87,35 @@ PlasmoidItem {
         }
 
         operand.appendDigit(digit);
-
         displayOperand();
     }
 
-    // Modified by Yasuhiro Yamakawa on 2026-05-14
-    // Adapted to the new operator handling logic.
-    //
-    // Modified by Yasuhiro Yamakawa on 2026-05-12
-    // Support sign inversion (Casio style):
-    // Inverts the current result if no input has started, or inverts the current operand being typed.
+    // Support delete (backspace) functionality:
+    // If the displayed number is editable (current operand), delete the last digit. If the
+    // displayed number is read-only (result), clear the current entry instead.
     function deleteDigit() {
-        if (displayValue === Constants.RegisterRole.Operand) {
+        if (isDisplayedNumberEditable()) {
             operand.deleteDigit();
+            displayOperand();
         } else {
             clearEntryClicked();
         }
-
-        displayOperand();
     }
 
-    // Modified by Yasuhiro Yamakawa on 2026-05-14
-    // Adapted to the new operator handling logic.
+    // Support decimal point input functionality:
+    // If the displayed number is read-only (result), start a new entry by clearing the current
+    // result if no operator is pending, or clearing the current operand if an operator is pending.
     function decimalClicked() {
-        if (displayValue !== Constants.RegisterRole.Operand) {
+        if (isDisplayedNumberReadOnly()) {
             clearOperand();
         }
 
         operand.appendDecimalPoint();
         displayOperand();
+    }
+
+    function clearOperand() {
+        operand.clear();
     }
 
     // Modified by Yasuhiro Yamakawa on 2026-05-14
@@ -117,10 +146,6 @@ PlasmoidItem {
         displayResult();
     }
 
-    function clearOperand() {
-        operand.clear();
-    }
-
     // Added by Yasuhiro Yamakawa on 2026-05-14
     // Adapted to the new operator handling logic.
     function clearOperator() {
@@ -130,20 +155,17 @@ PlasmoidItem {
     // Modified by Yasuhiro Yamakawa on 2026-05-14
     // Adapted to the new operator handling logic.
     function setOperator(op) {
-        if (displayValue !== Constants.RegisterRole.Result) {
+        if (isOperandDisplayed()) {
             doOperation();
         }
 
         operator = op;
     }
 
-    // Modified by Yasuhiro Yamakawa on 2026-05-14
-    // Adapted to the new operator handling logic.
-    //
-    // Added by Yasuhiro Yamakawa on 2026-05-12
-    // Support sign inversion
-    function negate() {
-        if (displayValue === Constants.RegisterRole.Operand) {
+    // Support sign inversion (Casio style):
+    // Inverts the current result if no input has started, or inverts the current operand being typed.
+    function negateClicked() {
+        if (isOperandDisplayed()) {
             operand.negate();
             displayOperand();
         } else {
@@ -152,24 +174,29 @@ PlasmoidItem {
         }
     }
 
-    function root() {
-        if ((displayValue === Constants.RegisterRole.Operand && operand.isNegative()) || (displayValue !== Constants.RegisterRole.Operand && result.isNegative())) {
+    // Support root (√) functionality:
+    // If the current operand or result is negative, display an error message instead of performing
+    // the operation, as square root of negative numbers is not supported in this calculator.
+    function rootClicked() {
+        if ((isOperandDisplayed() && operand.isNegative()) || (isResultDisplayed() && result.isNegative())) {
             displayError(i18nc("Error message for applying square root negative number.", "ERROR"));
             return;
         }
 
-        if (displayValue === Constants.RegisterRole.Operand) {
+        if (isOperandDisplayed()) {
             result.assign(operand);
         }
 
-        result.root();
+        result.sqrt();
         displayResult();
     }
 
-    // Modified by Yasuhiro Yamakawa on 2026-05-14
-    // Adapted to the new operator handling logic.
+    // Support equals (=) functionality:
+    // If an operator is pending, perform the calculation with the current operand and display the
+    // result. Then clear the operator and operand to allow for new input or continued calculations
+    // with the result.
     function equalsClicked() {
-        if (displayValue !== Constants.RegisterRole.Result || operator !== Constants.Operator.None) {
+        if (isOperandDisplayed() || hasOperator()) {
             doOperation();
             clearOperator();
             clearOperand();
@@ -183,34 +210,32 @@ PlasmoidItem {
         displayOperand();
     }
 
+    // Support clear (C) functionality:
+    // Clears the current entry and any pending operator, but retains the current result for continued calculations.
+    function clearClicked() {
+        clearOperator();
+        clearEntryClicked();
+    }
+
+    // Support all clear (AC) functionality:
+    // Clears the entire calculation state, including the current result and any ongoing input.
+    function allClearClicked() {
+        clearClicked();
+        result.clear();
+    }
+
+    // For memory recall/clear (MRC) button:
+    // If the display is currently showing the memory value, clear it.
+    // If hasMemory is false, it behaves as if it were zero.
     function memoryRecallClearClicked() {
-        if (hasMemory) {
-            if (displayValue === Constants.RegisterRole.Memory) {
-                clearMemory();
-            } else if (displayValue === Constants.RegisterRole.Operand) {
-                if (operator === Constants.Operator.None) {
-                    allClearClicked();
-                    operand.assign(memory);
-                    displayOperand();
-                } else {
-                    console.log("Operand and operator");
-                    operand.assign(memory);
-                    displayOperand();
-                }
-                displayValue = Constants.RegisterRole.Memory;
-            } else {
-                if (operator === Constants.Operator.None) {
-                    allClearClicked();
-                    operand.assign(memory);
-                    displayOperand();
-                    displayValue = Constants.RegisterRole.Memory;
-                    console.log("Result and operator");
-                } else {
-                    operand.assign(memory);
-                    displayOperand();
-                    displayValue = Constants.RegisterRole.Memory;
-                }
+        if (isMemoryDisplayed()) {
+            clearMemory();
+        } else {
+            if (hasNoOperator()) {
+                allClearClicked();
             }
+            operand.assign(memory);
+            displayMemory();
         }
     }
 
@@ -219,12 +244,16 @@ PlasmoidItem {
         hasMemory = false;
     }
 
+    // For memory plus (M+) button:
+    // Adds the current result to memory.
     function memoryPlusClicked() {
         equalsClicked();
         memory.add(result);
         hasMemory = true;
     }
 
+    // For memory minus (M-) button:
+    // Subtracts the current result from memory.
     function memoryMinusClicked() {
         equalsClicked();
         memory.subtract(result);
@@ -232,23 +261,11 @@ PlasmoidItem {
     }
 
     // Modified by Yasuhiro Yamakawa on 2026-05-14
-    // Adapted to the new operator handling logic 
-    function clearClicked() {
-        clearOperator();
-        clearEntryClicked();
-    }
-
-    // Modified by Yasuhiro Yamakawa on 2026-05-14
-    // Adapted to the new operator handling logic.
-    function allClearClicked() {
-        clearClicked();
-        result.clear();
-    }
-
-    // Modified by Yasuhiro Yamakawa on 2026-05-14
     // Ensured that the clipboard functions work correctly.
     function copyToClipboard() {
-        let text = displayValue ? operand.toFormatNumber(displayValue) : result.toFormatNumber(displayValue);
+        let text = isOperandDisplayed()
+            ? operand.toFormatNumber(isDisplayedNumberEditable())
+            : result.toFormatNumber(isDisplayedNumberEditable());
         text = text.replace(/\u2009/g, "");
         dummyTextEditForPasting.text = text;
         dummyTextEditForPasting.selectAll();
@@ -285,34 +302,28 @@ PlasmoidItem {
         return new RegExp('^[0-9]*[\.,]?[0-9]+$').test(input);
     }
 
-    // Removed by Yasuhiro Yamakawa on 2026-05-14
-    // Removed the divisionByZero() function.
-
-    // Added by Yasuhiro Yamakawa on 2026-05-14
-    // Refactored to separate the logic for displaying the result and the operand,
-    //   improving code clarity and maintainability.
     function displayResult() {
         displayValue = Constants.RegisterRole.Result;
-        display.text = result.toFormatNumber(displayValue);
+        display.text = result.toFormatNumber(false);
     }
 
-    // Added by Yasuhiro Yamakawa on 2026-05-14
-    // Refactored to separate the logic for displaying the result and the operand,
-    //   improving code clarity and maintainability.
     function displayOperand() {
         displayValue = Constants.RegisterRole.Operand;
-        display.text =operand.toFormatNumber(displayValue);
+        display.text =operand.toFormatNumber(true);
     }
 
-    // Added by Yasuhiro Yamakawa on 2026-05-14
-    // Refactored to separate the logic for displaying error messages from the display functions,
-    //   improving code clarity and maintainability.
+    function displayMemory() {
+        displayValue = Constants.RegisterRole.Memory;
+        display.text =operand.toFormatNumber(false);
+    }
+
     function displayError(message) {
         clearOperator();
         displayValue = Constants.RegisterRole.Result;
         display.text = message;
     }
 
+    // Dummy TextEdit used for clipboard operations, as TextEdit's copy/paste functions require a focused TextEdit.
     TextEdit {
         id: dummyTextEditForPasting
         visible: false
@@ -456,7 +467,7 @@ PlasmoidItem {
                 // Added by Yasuhiro Yamakawa on 2026-05-12
                 // Handles the +/- key found on keyboards like the Dell KB740 (maps to F9).
                 case Qt.Key_F9:
-                    main.negate();
+                    main.negateClicked();
                     negateButton.forceActiveFocus(Qt.TabFocusReason);
                     break;
                 default:
@@ -543,7 +554,7 @@ PlasmoidItem {
                             color: Kirigami.Theme.textColor
                             verticalAlignment: TextEdit.AlignVCenter
                             readOnly: true
-                            opacity: main.operator === Constants.Operator.Add ? 1.0 : 0.0
+                            opacity: main.isKCalculationMode ? 1.0 : 0.0
 
                             Accessible.name: text
                             Accessible.description: i18nc("@label Status", "Status")
@@ -713,7 +724,7 @@ PlasmoidItem {
                     KeyNavigation.right: rootButton
 
                     text: i18nc("Text of the negate button", "+/−")
-                    onClicked: main.negate()
+                    onClicked: main.negateClicked()
                 }
 
                 CalcButton {
@@ -725,7 +736,7 @@ PlasmoidItem {
                     KeyNavigation.right: allClearButton
 
                     text: i18nc("Text of the root button", "√")
-                    onClicked: main.root()
+                    onClicked: main.rootClicked()
                 }
 
 

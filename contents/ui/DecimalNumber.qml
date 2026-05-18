@@ -80,14 +80,14 @@ QtObject {
         if (exponent === other.exponent) {
             mantissa += other.mantissa;
         } else if (exponent > other.exponent) {
-            add_helper(this, other);
+            addAlined(this, other);
         } else {
-            add_helper(other, this);
+            addAlined(other, this);
         }
         normalize();
     }
 
-    function add_helper(large, small) {
+    function addAlined(large, small) {
         var tempMantissa = small.mantissa / Math.pow(10, large.exponent - small.exponent);
         tempMantissa = Math.round(large.mantissa + tempMantissa);
         mantissa = tempMantissa;
@@ -106,14 +106,15 @@ QtObject {
         if (exponent === other.exponent) {
             mantissa -= other.mantissa;
         } else if (exponent > other.exponent) {
-            subtract_helper(this, other);
+            subtractAlined(this, other);
         } else {
-            subtract_helper(other, this);
+            subtractAlined(other, this);
+            negate();
         }
         normalize();
     }
 
-    function subtract_helper(large, small) {
+    function subtractAlined(large, small) {
         var tempMantissa = small.mantissa / Math.pow(10, large.exponent - small.exponent);
         tempMantissa = Math.round(large.mantissa - tempMantissa);
         mantissa = tempMantissa;
@@ -150,7 +151,7 @@ QtObject {
         mantissa = -mantissa;
     }
 
-    function root() {
+    function sqrt() {
         if (mantissa < 0) {
             clear();
             // TODO: negative number error handling
@@ -267,10 +268,10 @@ QtObject {
         }
     }
 
-    function toFormatNumber(displayValue) {
+    function toFormatNumber(isEditing) {
         var text = "";
         // Show all decimals including zeroes and show decimalPoint
-        if (displayValue === Constants.RegisterRole.Operand && commaPressed) {
+        if (isEditing && commaPressed) {
             if (mantissa === 0) {
                 text = insertSeparatorToFractionPart("0." + "0".repeat(caretPosition));
             } else {
