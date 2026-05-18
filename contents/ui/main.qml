@@ -20,6 +20,7 @@
  *   - Added support for calculator memory functions (M+, M-, MRC).
  *   - Added support for root operation.
  *   - Emulated Casio-style behavior.
+ *   - Added support for constant calculation mode (K mode).
  */
 pragma ComponentBehavior: Bound
 
@@ -37,13 +38,14 @@ PlasmoidItem {
     switchWidth: Kirigami.Units.gridUnit * 7
     switchHeight: Math.round(Kirigami.Units.gridUnit * 6)
 
-    property DecimalNumber result: DecimalNumber {}
     property int displayValue: Constants.RegisterRole.Operand
+    property DecimalNumber result: DecimalNumber {}
     property int operator: Constants.Operator.None
-    property DecimalNumber operand: DecimalNumber {}
-    property DecimalNumber memory: DecimalNumber {}
+    property DecimalNumber operand: DecimalNumber { caretPosition: 0 }
     property bool hasMemory: false
+    property DecimalNumber memory: DecimalNumber {}
     property bool isKCalculationMode: false
+    property DecimalNumber kOperand: DecimalNumber {}
     property TextEdit display
 
     function isDisplayedNumberEditable() {
@@ -72,6 +74,26 @@ PlasmoidItem {
 
     function hasNoOperator() {
         return operator === Constants.Operator.None;
+    }
+
+    function isOperatorIndicatorAdditionVisible() {
+        return operator === Constants.Operator.Add && isOperandDisplayed();
+    }
+
+    function isOperatorIndicatorSubtractionVisible() {
+        return operator === Constants.Operator.Subtract && isOperandDisplayed();
+    }
+
+    function isOperatorIndicatorMultiplicationVisible() {
+        return operator === Constants.Operator.Multiply && isOperandDisplayed();
+    }
+
+    function isOperatorIndicatorDivisionVisible() {
+        return operator === Constants.Operator.Divide && isOperandDisplayed();
+    }
+
+    function isOperatorIndicatorEqualVisible() {
+        return (operator === Constants.Operator.None || isKCalculationMode) && isResultDisplayed();
     }
 
     // Support digit input functionality:
@@ -156,9 +178,20 @@ PlasmoidItem {
     // Adapted to the new operator handling logic.
     function setOperator(op) {
         if (isOperandDisplayed()) {
-            doOperation();
+            if (isKCalculationMode) {
+                isKCalculationMode = false;
+            } else {
+                doOperation();
+            }
+        } else if (isResultDisplayed()) {
+            if (isKCalculationMode) {
+                isKCalculationMode = false;
+            } else if (isResultDisplayed && operator === op) {
+                isKCalculationMode = true;
+                kOperand.assign(result);
+            }
         }
-
+        
         operator = op;
     }
 
@@ -178,17 +211,21 @@ PlasmoidItem {
     // If the current operand or result is negative, display an error message instead of performing
     // the operation, as square root of negative numbers is not supported in this calculator.
     function rootClicked() {
-        if ((isOperandDisplayed() && operand.isNegative()) || (isResultDisplayed() && result.isNegative())) {
-            displayError(i18nc("Error message for applying square root negative number.", "ERROR"));
-            return;
-        }
-
         if (isOperandDisplayed()) {
-            result.assign(operand);
+            if (operand.isNegative()) {
+                displayError(i18nc("Error message for applying square root negative number.", "ERROR"));
+                return;
+            }
+            operand.sqrt();
+            displayOperand();
+        } else {
+            if (result.isNegative()) {
+                displayError(i18nc("Error message for applying square root negative number.", "ERROR"));
+                return;
+            }
+            result.sqrt();
+            displayResult();
         }
-
-        result.sqrt();
-        displayResult();
     }
 
     // Support equals (=) functionality:
@@ -196,7 +233,13 @@ PlasmoidItem {
     // result. Then clear the operator and operand to allow for new input or continued calculations
     // with the result.
     function equalsClicked() {
-        if (isOperandDisplayed() || hasOperator()) {
+        if (isKCalculationMode) {
+            if (isOperandDisplayed()) {
+                result.assign(operand);
+            }
+            operand.assign(kOperand);
+            doOperation();
+        } else if (isOperandDisplayed() || hasOperator()) {
             doOperation();
             clearOperator();
             clearOperand();
@@ -213,6 +256,8 @@ PlasmoidItem {
     // Support clear (C) functionality:
     // Clears the current entry and any pending operator, but retains the current result for continued calculations.
     function clearClicked() {
+        isKCalculationMode = false;
+        kOperand.clear();
         clearOperator();
         clearEntryClicked();
     }
@@ -264,8 +309,8 @@ PlasmoidItem {
     // Ensured that the clipboard functions work correctly.
     function copyToClipboard() {
         let text = isOperandDisplayed()
-            ? operand.toFormatNumber(isDisplayedNumberEditable())
-            : result.toFormatNumber(isDisplayedNumberEditable());
+            ? operand.toFormatNumber() // isDisplayedNumberEditable())
+            : result.toFormatNumber(); // isDisplayedNumberEditable());
         text = text.replace(/\u2009/g, "");
         dummyTextEditForPasting.text = text;
         dummyTextEditForPasting.selectAll();
@@ -304,17 +349,17 @@ PlasmoidItem {
 
     function displayResult() {
         displayValue = Constants.RegisterRole.Result;
-        display.text = result.toFormatNumber(false);
+        display.text = result.toFormatNumber(); // false);
     }
 
     function displayOperand() {
         displayValue = Constants.RegisterRole.Operand;
-        display.text =operand.toFormatNumber(true);
+        display.text =operand.toFormatNumber(); // true);
     }
 
     function displayMemory() {
         displayValue = Constants.RegisterRole.Memory;
-        display.text =operand.toFormatNumber(false);
+        display.text =operand.toFormatNumber(); // false);
     }
 
     function displayError(message) {
@@ -566,14 +611,14 @@ PlasmoidItem {
                             Layout.preferredWidth: height
                             Layout.leftMargin: displayFrame.width * 0.2
 
-                            text: "\u2795"
+                            text: "+" // "\u2795"
                             font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1
                             font.weight: Font.Bold
                             Kirigami.Theme.colorSet: Kirigami.Theme.View
                             color: Kirigami.Theme.textColor
                             verticalAlignment: TextEdit.AlignVCenter
                             readOnly: true
-                            opacity: main.operator === Constants.Operator.Add ? 1.0 : 0.0
+                            opacity: main.isOperatorIndicatorAdditionVisible() ? 1.0 : 0.0
 
                             Accessible.name: text
                             Accessible.description: i18nc("@label Current Operand", "Apply Plus")
@@ -585,7 +630,7 @@ PlasmoidItem {
                             Layout.preferredWidth: height
                             Layout.leftMargin: displayFrame.width * 0.02
 
-                            text: "\u2796"
+                            text: "\u2212" // "\u2796"
                             font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1
                             font.weight: Font.Bold
                             Kirigami.Theme.colorSet: Kirigami.Theme.View
@@ -593,7 +638,7 @@ PlasmoidItem {
                             // horizontalAlignment: TextEdit.AlignHCenter
                             verticalAlignment: TextEdit.AlignVCenter
                             readOnly: true
-                            opacity: main.operator === Constants.Operator.Subtract ? 1.0 : 0.0
+                            opacity: main.isOperatorIndicatorSubtractionVisible() ? 1.0 : 0.0
 
                             focus: main.expanded
 
@@ -607,15 +652,14 @@ PlasmoidItem {
                             Layout.preferredWidth: height
                             Layout.leftMargin: displayFrame.width * 0.02
 
-                            text: "\u2715"
+                            text: "\u00d7" // "\u2715"
                             font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1
                             font.weight: Font.Bold
                             Kirigami.Theme.colorSet: Kirigami.Theme.View
                             color: Kirigami.Theme.textColor
-                            // horizontalAlignment: TextEdit.AlignHCenter
                             verticalAlignment: TextEdit.AlignVCenter
                             readOnly: true
-                            opacity: main.operator === Constants.Operator.Multiply ? 1.0 : 0.0
+                            opacity: main.isOperatorIndicatorMultiplicationVisible() ? 1.0 : 0.0
 
                             Accessible.name: text
                             Accessible.description: i18nc("@label Status", "Status")
@@ -627,16 +671,33 @@ PlasmoidItem {
                             Layout.preferredWidth: height
                             Layout.leftMargin: displayFrame.width * 0.02
 
-                            text: "\u2797"
+                            text: "\u00f7" // "\u2797"
                             font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1
                             font.weight: Font.Bold
                             Kirigami.Theme.colorSet: Kirigami.Theme.View
                             color: Kirigami.Theme.textColor
                             verticalAlignment: TextEdit.AlignVCenter
                             readOnly: true
-                            opacity: main.operator === Constants.Operator.Divide ? 1.0 : 0.0
+                            opacity: main.isOperatorIndicatorDivisionVisible() ? 1.0 : 0.0
 
-                            // focus: main.expanded
+                            Accessible.name: text
+                            Accessible.description: i18nc("@label Status", "Status")
+                        }
+
+                        TextEdit {
+                            id: operatorIndicatorEqual
+                            Layout.fillHeight: true
+                            Layout.preferredWidth: height
+                            Layout.leftMargin: displayFrame.width * 0.02
+
+                            text: "="
+                            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1
+                            font.weight: Font.Bold
+                            Kirigami.Theme.colorSet: Kirigami.Theme.View
+                            color: Kirigami.Theme.textColor
+                            verticalAlignment: TextEdit.AlignVCenter
+                            readOnly: true
+                            opacity: main.isOperatorIndicatorEqualVisible() ? 1.0 : 0.0
 
                             Accessible.name: text
                             Accessible.description: i18nc("@label Status", "Status")
