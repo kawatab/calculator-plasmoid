@@ -1,0 +1,11 @@
+module org.kde.ksvg
+
+# Map common KSvg components to a standard QML Item or Image
+Svg 1.0 DummyItem.qml
+Svg 2.0 DummyItem.qml
+FrameSvg 1.0 DummyItem.qml
+FrameSvg 2.0 DummyItem.qml
+FrameSvgItem 1.0 DummyItem.qml
+FrameSvgItem 2.0 DummyItem.qml
+ImageTexture 1.0 DummyItem.qml
+ImageTexture 2.0 DummyItem.qml

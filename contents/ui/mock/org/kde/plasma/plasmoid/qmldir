@@ -1,0 +1,6 @@
+module org.kde.plasma.plasmoid
+# Pretend the Plasmoid object is just a standard QML Item
+Plasmoid 1.0 DummyItem.qml
+Plasmoid 2.0 DummyItem.qml
+PlasmoidItem 1.0 DummyItem.qml
+PlasmoidItem 2.0 DummyItem.qml
