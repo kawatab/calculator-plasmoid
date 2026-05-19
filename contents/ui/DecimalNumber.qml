@@ -27,17 +27,24 @@ QtObject {
     property int caretPosition: -1
     property bool commaPressed: false
 
-    function setReadOnly() {
-        caretPosition = -1;
-        commaPressed = false;
-    }
-
     function isEditable() {
         return caretPosition >= 0;
     }
 
+    // Clears and sets editable if the number is read-only.
+    function ensureEditable() {
+        if (isReadOnly()) {
+            clear();
+        }
+    }
+
     function isReadOnly() {
         return caretPosition < 0;
+    }
+
+    function setReadOnly() {
+        caretPosition = -1;
+        commaPressed = false;
     }
 
     function isZero() {
@@ -59,7 +66,7 @@ QtObject {
     // If non-zero, the mantissa always has 12 digits and the exponent is adjusted accordingly.
     // This function is called after each arithmetic operation to maintain the correct format of
     // the number. If the mantissa is zero, the exponent is reset to zero as well.
-    function normalize() { // setReadOnly() required.
+    function normalize() {
         if (isZero()) {
             exponent = 0;
         } else {
@@ -73,28 +80,23 @@ QtObject {
             exponent += diff;
             mantissa = Math.round(mantissa);
         }
-        
-        setReadOnly();
     }
 
-    function assign(other) { // setReadOnly() required.
+    function assign(other) {
         mantissa = other.mantissa;
         exponent = other.exponent;
-        setReadOnly();
     }
     
-    function assignZero() { // setReadOnly() required.
+    function assignZero() {
         mantissa = 0;
         exponent = 0;
-        setReadOnly();
     }
 
-    function add(other) { // normalize(), assign() or setReadOnly() required.
+    function add(other) { // assignZero() or normalize() required.
         if (isZero()) {
             assign(other);
             return;
         } else if (other.isZero()) {
-            setReadOnly();
             return;
         }
 
@@ -105,25 +107,30 @@ QtObject {
         } else {
             addAlined(other, this);
         }
+
         normalize();
     }
 
-    function addAlined(large, small) { // for add() only
-        var tempMantissa = small.mantissa / Math.pow(10, large.exponent - small.exponent);
-        tempMantissa = Math.round(large.mantissa + tempMantissa);
-        mantissa = tempMantissa;
-        exponent = large.exponent;
+    function addAlined(large, small) {
+        let diff = large.exponent - small.exponent;
+        if (diff > precision) {
+            mantissa = large.mantissa;
+            exponent = large.exponent;
+        } else {
+            // 1 + 999 999 999 = 1 000 000 000
+            let largeMantissa = large.mantissa * 10;
+            let smallMantissa = small.mantissa / Math.pow(10, diff - 1);
+            mantissa = Math.round(largeMantissa + smallMantissa);
+            exponent = large.exponent - 1;
+        }
     }
     
-    function subtract(other) { // normalize(), assign() or setReadOnly() required.
+    function subtract(other) { // assignZero() or normalize() required.
         if (isZero()) {
             assign(other);
             negate();
             return;
-        }
-        
-        if (other.isZero()) {
-            setReadOnly();
+        } else if (other.isZero()) {
             return;
         }
 
@@ -138,11 +145,18 @@ QtObject {
         normalize();
     }
 
-    function subtractAlined(large, small) { // for subtract() only
-        var tempMantissa = small.mantissa / Math.pow(10, large.exponent - small.exponent);
-        tempMantissa = Math.round(large.mantissa - tempMantissa);
-        mantissa = tempMantissa;
-        exponent = large.exponent;
+    function subtractAlined(large, small) {
+        let diff = large.exponent - small.exponent;
+        if (diff > precision) {
+            mantissa = large.mantissa;
+            exponent = large.exponent;
+        } else {
+            // 1 000 000 000 000 - 999 999 999 = 1
+            let largeMantissa = large.mantissa * 10;
+            let smallMantissa = small.mantissa / Math.pow(10, diff - 1);
+            mantissa = Math.round(largeMantissa - smallMantissa);
+            exponent = large.exponent - 1;
+        }
     }
     
     function multiply(other) { // assignZero() or normalize() required.
@@ -161,8 +175,8 @@ QtObject {
             assignZero();
             return;
         } else if (other.isZero()) {
+            // Returns zero deliberately to avoid infinity or NaN, and the error state is handled in the main.qml.
             assignZero();
-            // TODO: Divide by zero error handling
             return;
         }
 
@@ -171,19 +185,18 @@ QtObject {
         normalize();
     }
 
-    function negate() { // Don't need to lock
+    function negate() {
         mantissa = -mantissa;
     }
 
-    function sqrt() { // assign Zero(), setReadOnly() or normalize() required.
+    function sqrt() {
         if (isNegative()) {
+            // Returns zero deliberately to avoid NaN, and the error state is handled in the main.qml.
             assignZero();
-            // TODO: negative number error handling
             return;
         } 
 
         if (isZero()) {
-            setReadOnly();
             return;
         }
 
@@ -193,7 +206,6 @@ QtObject {
             mantissa === 999999999999 && exponent === -12) {
             mantissa = 1e11;
             exponent = -11;
-            setReadOnly();
             return;
         }
 
@@ -210,8 +222,8 @@ QtObject {
         normalize();
     }
 
-    function appendDigit(digit) { // check editable
-        if (isReadOnly()) return;
+    function appendDigit(digit) { // ensure editable
+        ensureEditable();
 
         if (commaPressed) {
             appendDecimalDigit(digit);
@@ -220,8 +232,8 @@ QtObject {
         }
     }
 
-    function appendIntegerDigit(digit) { // check editable
-        if (isReadOnly()) return;
+    function appendIntegerDigit(digit) { // ensure editable
+        ensureEditable();
 
         mantissa = Math.abs(mantissa); // Remove the sign
         if (isZero()) {
@@ -240,8 +252,8 @@ QtObject {
     }
 
     // If number is less than 1, precision is decreased.
-    function appendDecimalDigit(digit) { // check editable.
-        if (isReadOnly()) return;
+    function appendDecimalDigit(digit) { // ensure editable
+        ensureEditable();
 
         mantissa = Math.abs(mantissa); // Remove the sign
         if (precision > caretPosition) {
@@ -254,7 +266,6 @@ QtObject {
             } else if (exponent > -precision) {
                 mantissa += digit * Math.pow(10, precision - caretPosition - 1);
                 ++caretPosition;
-            // } else if (precision > caretPosition + 1) {
             } else if (caretPosition < precision - 1) {
                 mantissa += digit * Math.pow(10, -exponent - caretPosition - 1);
                 ++caretPosition;
@@ -262,14 +273,13 @@ QtObject {
         }
     }
 
-    function appendDecimalPoint() { // check editable
-        if (isReadOnly()) return;
-
+    function appendDecimalPoint() { // ensure editable
+        ensureEditable();
         commaPressed = isZero() || caretPosition < precision;
     }
 
-    function deleteDigit() { // check editable
-        if (isReadOnly()) return;
+    function deleteDigit() { // ensure editable
+        ensureEditable();
 
         if (commaPressed) {
             if (caretPosition === exponent + precision) {
@@ -285,39 +295,35 @@ QtObject {
         }
     }
 
-    function deleteIntegerDigit() { // check editable
-        if (isReadOnly() || isZero()) return;
+    function deleteIntegerDigit() { // ensure editable
+        if (isZero()) return;
+
+        ensureEditable();
 
         mantissa = Math.abs(mantissa); // Remove the sign
-        // if (mantissa > 0) {
-            // if (caretPosition >= 0) {
-            --caretPosition;
-            mantissa -= mantissa % Math.pow(10, precision - caretPosition);
-            --exponent;
-            if (isZero()) {
-                clear();
-            }
-            // }
-        // }
+        mantissa -= mantissa % Math.pow(10, precision - caretPosition - 1);
+        --caretPosition;
+        --exponent;
+        if (isZero()) {
+            clear();
+        }
     }
 
-    function deleteDecimalDigit() { // check editable
-        if (isReadOnly()) return;
+    function deleteDecimalDigit() { // ensure editable
+        ensureEditable();
 
         if (caretPosition > exponent + precision) {
            mantissa = Math.abs(mantissa); // Remove the sign
            if (mantissa > 0 || caretPosition <= precision) {
+                mantissa -= mantissa % Math.pow(10, precision - caretPosition - 1);
                 --caretPosition;
-                mantissa -= mantissa % Math.pow(10, precision - caretPosition);
             }
         }
     }
 
-    // function toFormatNumber(isEditing) {
     function toFormatNumber() {
         var text = "";
         // Show all decimals including zeroes and show decimalPoint
-        // if (isEditing && commaPressed) {
         if (isEditable() && commaPressed) {
             if (isZero()) {
                 text = insertSeparatorToFractionPart("0." + "0".repeat(caretPosition));
@@ -329,6 +335,8 @@ QtObject {
                     text += Qt.locale().decimalPoint;
                 }
             }
+        /*
+        // Don't allow scientific notation for numbers and show up to 12 significant digits.
         } else if (exponent > 0) {
             text = "OVERFLOW";
         } else if (exponent > -precision) {
@@ -350,8 +358,8 @@ QtObject {
                 text = insertSeparatorToFractionPart(text);
             }
         }
-        /*
-        // for experiment: Allow scientific notation for numbers.
+        */
+        // Allow scientific notation for numbers.
         } else if (exponent > 0) {
             text = formatToScientificString();
         } else if (exponent > -precision) {
@@ -361,14 +369,17 @@ QtObject {
             let count = countTrailingZero(mantissa);
             let digitCount = 1 - exponent - count;
             if (digitCount <= precision) {
-                text = insertSeparatorToFractionPart((mantissa / Math.pow(10, -exponent)).toLocaleString(Qt.locale(), "g", precision));
+                text = insertSeparatorToFractionPart((mantissa / Math.pow(10, -exponent)).toLocaleString(Qt.locale(), "f", digitCount - 1));
             } else {
-                text = formatToScientificString();
+                if (exponent > -precision - 9) {
+                     text = insertSeparatorToFractionPart((mantissa / Math.pow(10, -exponent)).toLocaleString(Qt.locale(), "f", precision - 1));
+                } else {
+                    text = formatToScientificString();
+                }
             }
         } else {
             text = formatToScientificString();
         }
-        */
 
         var regex = new RegExp(Qt.locale().groupSeparator, "g");
         return text.replace(regex, "\u2009");
@@ -389,7 +400,7 @@ QtObject {
 
     function formatToScientificString() {
         let normalizedMantissa = (mantissa / Math.pow(10, precision - 1));
-        let text = normalizedMantissa.toLocaleString(Qt.locale(), "g", precision);
+        let text = normalizedMantissa.toLocaleString(Qt.locale(), "f", precision - 5);
         let normalizedExponent = exponent + precision - 1;
         return insertSeparatorToFractionPart(text) + (normalizedExponent < 0 ? "E" : "E+") + normalizedExponent.toString();
     }

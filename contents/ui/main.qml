@@ -21,6 +21,7 @@
  *   - Added support for root operation.
  *   - Emulated Casio-style behavior.
  *   - Added support for constant calculation mode (K mode).
+ *   - Modified error handling to display an error state instead of showing "Error" in the display.
  */
 // pragma ComponentBehavior: Bound;
 
@@ -38,14 +39,15 @@ PlasmoidItem {
     switchWidth: Kirigami.Units.gridUnit * 7
     switchHeight: Math.round(Kirigami.Units.gridUnit * 6)
 
-    property int displayValue: Constants.RegisterRole.Operand
     property DecimalNumber result: DecimalNumber {}
-    property int operator: Constants.Operator.None
     property DecimalNumber operand: DecimalNumber { caretPosition: 0 }
-    property bool hasMemory: false
     property DecimalNumber memory: DecimalNumber {}
+    property DecimalNumber temporary: DecimalNumber {}
+    property int displayValue: Constants.RegisterRole.Operand
+    property int operator: Constants.Operator.None
+    property bool hasMemory: false
     property bool isKCalculationMode: false
-    property DecimalNumber kOperand: DecimalNumber {}
+    property bool isErrorState: false
     property TextEdit display
 
     function isDisplayedNumberEditable() {
@@ -77,29 +79,31 @@ PlasmoidItem {
     }
 
     function isOperatorIndicatorAdditionVisible() {
-        return operator === Constants.Operator.Add && isOperandDisplayed();
+        return !isErrorState && operator === Constants.Operator.Add && (isOperandDisplayed() || (isResultDisplayed() && !isKCalculationMode));
     }
 
     function isOperatorIndicatorSubtractionVisible() {
-        return operator === Constants.Operator.Subtract && isOperandDisplayed();
+        return !isErrorState && operator === Constants.Operator.Subtract && (isOperandDisplayed() || (isResultDisplayed() && !isKCalculationMode));
     }
 
     function isOperatorIndicatorMultiplicationVisible() {
-        return operator === Constants.Operator.Multiply && isOperandDisplayed();
+        return !isErrorState && operator === Constants.Operator.Multiply && (isOperandDisplayed() || (isResultDisplayed() && !isKCalculationMode));
     }
 
     function isOperatorIndicatorDivisionVisible() {
-        return operator === Constants.Operator.Divide && isOperandDisplayed();
+        return !isErrorState && operator === Constants.Operator.Divide && (isOperandDisplayed() || (isResultDisplayed() && !isKCalculationMode));
     }
 
     function isOperatorIndicatorEqualVisible() {
-        return (operator === Constants.Operator.None || isKCalculationMode) && isResultDisplayed();
+        return !isErrorState && (operator === Constants.Operator.None || isKCalculationMode) && isResultDisplayed();
     }
 
     // Support digit input functionality:
     // If the displayed number is read-only (result), start a new entry by clearing the current
     // result if no operator is pending, or clearing the current operand if an operator is pending.
     function digitClicked(digit) {
+        if (isErrorState) return;
+
         if (isDisplayedNumberReadOnly()) {
             if (hasNoOperator()) {
                 allClearClicked();
@@ -116,6 +120,8 @@ PlasmoidItem {
     // If the displayed number is editable (current operand), delete the last digit. If the
     // displayed number is read-only (result), clear the current entry instead.
     function deleteDigit() {
+        if (isErrorState) return;
+
         if (isDisplayedNumberEditable()) {
             operand.deleteDigit();
             displayOperand();
@@ -128,6 +134,8 @@ PlasmoidItem {
     // If the displayed number is read-only (result), start a new entry by clearing the current
     // result if no operator is pending, or clearing the current operand if an operator is pending.
     function decimalClicked() {
+        if (isErrorState) return;
+
         if (isDisplayedNumberReadOnly()) {
             clearOperand();
         }
@@ -158,11 +166,16 @@ PlasmoidItem {
             break;
         case Constants.Operator.Divide:
             if (operand.isZero()) {
-                displayError(i18nc("Error message for division by zero, max. six to nine characters.", "Div/0"));
+                isErrorState = true;
                 return;
             }
             result.divide(operand);
             break;
+        }
+
+        // Keep result for
+        if (!isKCalculationMode) {
+            temporary.assign(result);
         }
 
         displayResult();
@@ -176,7 +189,9 @@ PlasmoidItem {
 
     // Modified by Yasuhiro Yamakawa on 2026-05-14
     // Adapted to the new operator handling logic.
-    function setOperator(op) {
+    function operatorClicked(op) {
+        if (isErrorState) return;
+
         if (isOperandDisplayed()) {
             if (isKCalculationMode) {
                 isKCalculationMode = false;
@@ -188,16 +203,22 @@ PlasmoidItem {
                 isKCalculationMode = false;
             } else if (isResultDisplayed && operator === op) {
                 isKCalculationMode = true;
-                kOperand.assign(result);
+                temporary.assign(result);
             }
         }
         
-        operator = op;
+        if (isErrorState) {
+            result.assign(temporary);
+        } else {
+            operator = op;
+        }
     }
 
     // Support sign inversion (Casio style):
     // Inverts the current result if no input has started, or inverts the current operand being typed.
     function negateClicked() {
+        if (isErrorState) return;
+
         if (isOperandDisplayed()) {
             operand.negate();
             displayOperand();
@@ -211,17 +232,26 @@ PlasmoidItem {
     // If the current operand or result is negative, display an error message instead of performing
     // the operation, as square root of negative numbers is not supported in this calculator.
     function rootClicked() {
+        if (isErrorState) return;
+
         if (isOperandDisplayed()) {
+            operand.setReadOnly();
+
             if (operand.isNegative()) {
-                displayError(i18nc("Error message for applying square root negative number.", "ERROR"));
+                isErrorState = true;
+                operand.negate();
+                displayOperand();
                 return;
             }
 
+            temporary.assign(operand);
             operand.sqrt();
             displayOperand();
         } else {
             if (result.isNegative()) {
-                displayError(i18nc("Error message for applying square root negative number.", "ERROR"));
+                isErrorState = true;
+                result.negate();
+                displayResult();
                 return;
             }
 
@@ -241,39 +271,54 @@ PlasmoidItem {
     // result. Then clear the operator and operand to allow for new input or continued calculations
     // with the result.
     function equalsClicked() {
+        if (isErrorState) return;
+
         if (isKCalculationMode) {
             if (isOperandDisplayed()) {
                 result.assign(operand);
             }
-            operand.assign(kOperand);
+            operand.assign(temporary);
             doOperation();
         } else if (isOperandDisplayed() || hasOperator()) {
             doOperation();
-            clearOperator();
-            clearOperand();
+            if (isErrorState) {
+                result.assign(temporary);
+            } else {
+                clearOperator();
+                clearOperand();
+            }
         }
     }
 
     // Support clear entry (CE) functionality:
     // Clears the current operand being typed without affecting the ongoing calculation or operator.
     function clearEntryClicked() {
-        clearOperand();
-        displayOperand();
+        if (isErrorState) {
+            isErrorState = false;
+        } else {
+            clearOperand();
+            displayOperand();
+        }
     }
 
+    /*
     // Support clear (C) functionality:
     // Clears the current entry and any pending operator, but retains the current result for continued calculations.
     function clearClicked() {
         isKCalculationMode = false;
-        kOperand.clear();
+        temporary.clear();
         clearOperator();
         clearEntryClicked();
     }
+    */
 
     // Support all clear (AC) functionality:
     // Clears the entire calculation state, including the current result and any ongoing input.
     function allClearClicked() {
-        clearClicked();
+        isKCalculationMode = false;
+        temporary.clear();
+        clearOperator();
+        clearEntryClicked();
         result.clear();
     }
 
@@ -281,6 +326,8 @@ PlasmoidItem {
     // If the display is currently showing the memory value, clear it.
     // If hasMemory is false, it behaves as if it were zero.
     function memoryRecallClearClicked() {
+        if (isErrorState) return;
+
         if (isMemoryDisplayed()) {
             clearMemory();
         } else {
@@ -300,6 +347,8 @@ PlasmoidItem {
     // For memory plus (M+) button:
     // Adds the current result to memory.
     function memoryPlusClicked() {
+        if (isErrorState) return;
+
         equalsClicked();
         memory.add(result);
         hasMemory = true;
@@ -308,6 +357,8 @@ PlasmoidItem {
     // For memory minus (M-) button:
     // Subtracts the current result from memory.
     function memoryMinusClicked() {
+        if (isErrorState) return;
+
         equalsClicked();
         memory.subtract(result);
         hasMemory = true;
@@ -316,9 +367,7 @@ PlasmoidItem {
     // Modified by Yasuhiro Yamakawa on 2026-05-14
     // Ensured that the clipboard functions work correctly.
     function copyToClipboard() {
-        let text = isOperandDisplayed()
-            ? operand.toFormatNumber() // isDisplayedNumberEditable())
-            : result.toFormatNumber(); // isDisplayedNumberEditable());
+        let text = isOperandDisplayed() ? operand.toFormatNumber() : result.toFormatNumber();
         text = text.replace(/\u2009/g, "");
         dummyTextEditForPasting.text = text;
         dummyTextEditForPasting.selectAll();
@@ -357,23 +406,17 @@ PlasmoidItem {
 
     function displayResult() {
         displayValue = Constants.RegisterRole.Result;
-        display.text = result.toFormatNumber(); // false);
+        display.text = result.toFormatNumber();
     }
 
     function displayOperand() {
         displayValue = Constants.RegisterRole.Operand;
-        display.text =operand.toFormatNumber(); // true);
+        display.text =operand.toFormatNumber();
     }
 
     function displayMemory() {
         displayValue = Constants.RegisterRole.Memory;
-        display.text =operand.toFormatNumber(); // false);
-    }
-
-    function displayError(message) {
-        clearOperator();
-        displayValue = Constants.RegisterRole.Result;
-        display.text = message;
+        display.text =operand.toFormatNumber();
     }
 
     // Dummy TextEdit used for clipboard operations, as TextEdit's copy/paste functions require a focused TextEdit.
@@ -489,19 +532,19 @@ PlasmoidItem {
             Keys.onPressed: (event) => {
                 switch (event.key) {
                 case Qt.Key_Plus:
-                    main.setOperator(Constants.Operator.Add);
+                    main.operatorClicked(Constants.Operator.Add);
                     plusButton.forceActiveFocus(Qt.TabFocusReason);
                     break;
                 case Qt.Key_Minus:
-                    main.setOperator(Constants.Operator.Subtract);
+                    main.operatorClicked(Constants.Operator.Subtract);
                     minusButton.forceActiveFocus(Qt.TabFocusReason);
                     break;
                 case Qt.Key_Asterisk:
-                    main.setOperator(Constants.Operator.Multiply);
+                    main.operatorClicked(Constants.Operator.Multiply);
                     multiplyButton.forceActiveFocus(Qt.TabFocusReason);
                     break;
                 case Qt.Key_Slash:
-                    main.setOperator(Constants.Operator.Divide);
+                    main.operatorClicked(Constants.Operator.Divide);
                     divideButton.forceActiveFocus(Qt.TabFocusReason);
                     break;
                 case Qt.Key_Comma:
@@ -614,10 +657,31 @@ PlasmoidItem {
                         }
 
                         TextEdit {
+                            id: errorStateIndicator
+                            text: "E"
+                    
+                            Layout.fillHeight: true
+                            Layout.preferredWidth: height
+                            Layout.leftMargin: displayFrame.width * 0.1
+                            rightPadding: 0
+
+                            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1
+                            font.weight: Font.Bold
+                            Kirigami.Theme.colorSet: Kirigami.Theme.View
+                            color: Kirigami.Theme.textColor
+                            verticalAlignment: TextEdit.AlignVCenter
+                            readOnly: true
+                            opacity: main.isErrorState ? 1.0 : 0.0
+
+                            Accessible.name: text
+                            Accessible.description: i18nc("@label Error State", "Error State")
+                        }
+
+                        TextEdit {
                             id: operatorIndicatorAdd
                             Layout.fillHeight: true
                             Layout.preferredWidth: height
-                            Layout.leftMargin: displayFrame.width * 0.2
+                            Layout.leftMargin: displayFrame.width * 0.1
 
                             text: "+" // "\u2795"
                             font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1
@@ -726,7 +790,7 @@ PlasmoidItem {
                         verticalAlignment: TextEdit.AlignVCenter
                         readOnly: true
 
-                        // focus: main.expanded
+                        focus: main.expanded
 
                         Accessible.name: text
                         Accessible.description: i18nc("@label calculation result", "Result")
@@ -737,9 +801,6 @@ PlasmoidItem {
                             value: display
                         }
                     }
-
-                    // KeyNavigation.up: zeroButton
-                    // KeyNavigation.down: allClearButton
                 }
             }
 
@@ -856,7 +917,7 @@ PlasmoidItem {
                     KeyNavigation.right: memoryRecallClearButton
 
                     text: i18nc("Text of the division button", "÷")
-                    onClicked: main.setOperator(Constants.Operator.Divide)
+                    onClicked: main.operatorClicked(Constants.Operator.Divide)
                 }
 
 
@@ -905,7 +966,7 @@ PlasmoidItem {
                     KeyNavigation.right: sevenButton
 
                     text: i18nc("Text of the multiplication button", "\u2002×\u2002")
-                    onClicked: main.setOperator(Constants.Operator.Multiply)
+                    onClicked: main.operatorClicked(Constants.Operator.Multiply)
                 }
 
 
@@ -954,7 +1015,7 @@ PlasmoidItem {
                     KeyNavigation.right: fourButton
 
                     text: i18nc("Text of the minus button", "−")
-                    onClicked: main.setOperator(Constants.Operator.Subtract)
+                    onClicked: main.operatorClicked(Constants.Operator.Subtract)
                 }
 
 
@@ -1004,7 +1065,7 @@ PlasmoidItem {
 
                     Layout.rowSpan: 2
                     text: i18nc("Text of the plus button", "+")
-                    onClicked: main.setOperator(Constants.Operator.Add)
+                    onClicked: main.operatorClicked(Constants.Operator.Add)
                 }
 
                 CalcButton {

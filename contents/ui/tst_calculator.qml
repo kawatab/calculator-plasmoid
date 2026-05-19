@@ -32,7 +32,6 @@ TestCase {
     function i18np(singular, plural, n) { return n === 1 ? singular : plural; }
     function i18ncp(context, singular, plural, n) { return n === 1 ? singular : plural; }
 
-    // Test to verify that we can read properties from the main.qml file without errors
     function test_primitives() {
         // 1. Load the main.qml file dynamically using the Loader component defined above
         let appInstance = mainAppLoader.createObject(parent);
@@ -82,6 +81,58 @@ TestCase {
         mainRoot.digitClicked(2);
         mainRoot.equalsClicked();
         verify(mainRoot.result.toFormatNumber() === "4", "Result of 8 / 2 should be 4");
+
+        // 5. Clean up by destroying the created instance to avoid side effects on other tests
+        appInstance.destroy();
+    }
+
+    function test_input() {
+        // 1. Load the main.qml file dynamically using the Loader component defined above
+        let appInstance = mainAppLoader.createObject(parent);
+        
+        // 2. Verify that the Loader successfully created an instance of main.qml
+        verify(appInstance !== null, "main.qml failed to load");
+        compare(appInstance.status, Loader.Ready, "main.qml failed to load due to configuration or syntax errors");
+        verify(appInstance.item !== null, "The root item inside main.qml failed to initialize");
+
+        // 3. Access the root object inside main.qml using appInstance.item
+        let mainRoot = appInstance.item;
+
+        // 4. Test
+        mainRoot.digitClicked(0);
+        mainRoot.digitClicked(1);
+        mainRoot.digitClicked(2);
+        mainRoot.digitClicked(3);
+        mainRoot.digitClicked(4);
+        mainRoot.digitClicked(5);
+        mainRoot.digitClicked(6);
+        mainRoot.digitClicked(7);
+        mainRoot.digitClicked(8);
+        mainRoot.digitClicked(9);
+        mainRoot.digitClicked(0);
+        mainRoot.digitClicked(1);
+        mainRoot.digitClicked(2);
+        verify(mainRoot.operand.toFormatNumber() === "123\u2009456\u2009789\u2009012", "Result of 012345679012 should be 123 456 789 012");
+
+        mainRoot.allClearClicked();
+
+        mainRoot.digitClicked(0);
+        mainRoot.decimalClicked();
+        mainRoot.digitClicked(1);
+        mainRoot.digitClicked(2);
+        mainRoot.digitClicked(3);
+        mainRoot.digitClicked(4);
+        mainRoot.digitClicked(5);
+        mainRoot.digitClicked(6);
+        mainRoot.digitClicked(7);
+        mainRoot.digitClicked(8);
+        mainRoot.digitClicked(9);
+        mainRoot.digitClicked(0);
+        mainRoot.digitClicked(1);
+        mainRoot.digitClicked(2);
+        verify(mainRoot.operand.toFormatNumber() === "0.123\u2009456\u2009789\u200901", "Result of 012345679012 should be 0.123 456 789 01");
+
+        mainRoot.allClearClicked();
 
         // 5. Clean up by destroying the created instance to avoid side effects on other tests
         appInstance.destroy();
