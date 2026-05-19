@@ -195,6 +195,8 @@ PlasmoidItem {
         if (isOperandDisplayed()) {
             if (isKCalculationMode) {
                 isKCalculationMode = false;
+                result.assign(operand);
+                displayResult();
             } else {
                 doOperation();
             }
@@ -430,11 +432,13 @@ PlasmoidItem {
     // Added by Yasuhiro Yamakawa on 2026-05-12
     // Custom button component to ensure consistent styling and behavior across all calculator buttons.
     component CalcButton : PlasmaComponents.Button {
+        property alias buttonFont: buttonLabel.font
         Layout.fillWidth: true
         Layout.fillHeight: true
     
         // Override the contentItem once here
         contentItem: PlasmaComponents.Label {
+            id: buttonLabel
             text: parent.text
             font: parent.font
             color: Kirigami.Theme.textColor
@@ -600,6 +604,8 @@ PlasmoidItem {
                 imagePath: "widgets/frame"
                 prefix: "plain"
 
+                focus: main.expanded
+
                 ColumnLayout {
                     // Fill the frame completely while respecting the SVG theme borders
                     anchors.fill: displayFrame
@@ -621,7 +627,7 @@ PlasmoidItem {
 
                             Layout.fillHeight: true
                             Layout.preferredWidth: height
-                            Layout.leftMargin: displayFrame.width * 0.1
+                            Layout.leftMargin: displayFrame.width * 0.05
 
                             font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1
                             font.weight: Font.Bold
@@ -641,7 +647,7 @@ PlasmoidItem {
                     
                             Layout.fillHeight: true
                             Layout.preferredWidth: height
-                            Layout.leftMargin: displayFrame.width * 0.2
+                            Layout.leftMargin: displayFrame.width * 0.1
                             rightPadding: 0
 
                             font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1
@@ -662,7 +668,7 @@ PlasmoidItem {
                     
                             Layout.fillHeight: true
                             Layout.preferredWidth: height
-                            Layout.leftMargin: displayFrame.width * 0.1
+                            Layout.leftMargin: displayFrame.width * 0.05
                             rightPadding: 0
 
                             font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1
@@ -681,7 +687,7 @@ PlasmoidItem {
                             id: operatorIndicatorAdd
                             Layout.fillHeight: true
                             Layout.preferredWidth: height
-                            Layout.leftMargin: displayFrame.width * 0.1
+                            Layout.leftMargin: displayFrame.width * 0.05
 
                             text: "+" // "\u2795"
                             font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1
@@ -819,6 +825,7 @@ PlasmoidItem {
 
                 CalcButton {
                     id: allClearButton
+                    buttonFont.pointSize: sevenButton.buttonFont.pointSize * 0.75
 
                     KeyNavigation.up: zeroButton
                     KeyNavigation.down: memoryRecallClearButton
@@ -831,6 +838,7 @@ PlasmoidItem {
 
                 CalcButton {
                     id: clearButton
+                    buttonFont.pointSize: sevenButton.buttonFont.pointSize * 0.75
 
                     KeyNavigation.up: decimalButton
                     KeyNavigation.down: memoryMinusButton
@@ -872,6 +880,7 @@ PlasmoidItem {
 
                 CalcButton {
                     id: memoryRecallClearButton
+                    buttonFont.pointSize: sevenButton.buttonFont.pointSize * 0.75
 
                     KeyNavigation.up: allClearButton
                     KeyNavigation.down: sevenButton
@@ -884,6 +893,7 @@ PlasmoidItem {
 
                 CalcButton {
                     id: memoryMinusButton
+                    buttonFont.pointSize: sevenButton.buttonFont.pointSize * 0.75
 
                     KeyNavigation.up: clearButton
                     KeyNavigation.down: eightButton
@@ -898,6 +908,7 @@ PlasmoidItem {
                 // New button for sign inversion (negate).
                 CalcButton {
                     id: memoryPlusButton
+                    buttonFont.pointSize: sevenButton.buttonFont.pointSize * 0.75
 
                     KeyNavigation.up: negateButton
                     KeyNavigation.down: nineButton

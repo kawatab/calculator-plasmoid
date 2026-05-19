@@ -301,7 +301,7 @@ QtObject {
         ensureEditable();
 
         mantissa = Math.abs(mantissa); // Remove the sign
-        mantissa -= mantissa % Math.pow(10, precision - caretPosition - 1);
+        mantissa -= mantissa % Math.pow(10, precision - caretPosition + 1);
         --caretPosition;
         --exponent;
         if (isZero()) {
@@ -315,7 +315,7 @@ QtObject {
         if (caretPosition > exponent + precision) {
            mantissa = Math.abs(mantissa); // Remove the sign
            if (mantissa > 0 || caretPosition <= precision) {
-                mantissa -= mantissa % Math.pow(10, precision - caretPosition - 1);
+                mantissa -= mantissa % Math.pow(10, precision - caretPosition + 1);
                 --caretPosition;
             }
         }
