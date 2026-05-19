@@ -22,7 +22,7 @@
  *   - Emulated Casio-style behavior.
  *   - Added support for constant calculation mode (K mode).
  */
-pragma ComponentBehavior: Bound
+// pragma ComponentBehavior: Bound;
 
 import QtQuick 2.15
 import QtQuick.Layouts 1.3
@@ -216,6 +216,7 @@ PlasmoidItem {
                 displayError(i18nc("Error message for applying square root negative number.", "ERROR"));
                 return;
             }
+
             operand.sqrt();
             displayOperand();
         } else {
@@ -223,6 +224,13 @@ PlasmoidItem {
                 displayError(i18nc("Error message for applying square root negative number.", "ERROR"));
                 return;
             }
+
+            // After clicking operators, if the user clicks the root button before entering a new operand.
+            if (hasOperator()) {
+                allClearClicked();
+                return;
+            }
+
             result.sqrt();
             displayResult();
         }
@@ -640,7 +648,7 @@ PlasmoidItem {
                             readOnly: true
                             opacity: main.isOperatorIndicatorSubtractionVisible() ? 1.0 : 0.0
 
-                            focus: main.expanded
+                            // focus: main.expanded
 
                             Accessible.name: text
                             Accessible.description: i18nc("@label Status", "Status")
@@ -718,7 +726,7 @@ PlasmoidItem {
                         verticalAlignment: TextEdit.AlignVCenter
                         readOnly: true
 
-                        focus: main.expanded
+                        // focus: main.expanded
 
                         Accessible.name: text
                         Accessible.description: i18nc("@label calculation result", "Result")
