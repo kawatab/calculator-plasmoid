@@ -17,7 +17,6 @@ import QtTest 1.15
 
 TestCase {
     name: "CalculatorTests"
-    when: windowShown
 
     Component {
         id: mainAppLoader
@@ -53,7 +52,7 @@ TestCase {
         verify(mainRoot.memory.isReadOnly(), "Memory should be read-only successfully");
 
         mainRoot.digitClicked(5);
-        mainRoot.setOperator(Constants.Operator.Add);
+        mainRoot.operatorClicked(Constants.Operator.Add);
         mainRoot.digitClicked(3);
         mainRoot.equalsClicked();
         verify(mainRoot.result.toFormatNumber() === "8", "Result of 5 + 3 should be 8");
@@ -61,7 +60,7 @@ TestCase {
         mainRoot.allClearClicked();
 
         mainRoot.digitClicked(9);
-        mainRoot.setOperator(Constants.Operator.Subtract);
+        mainRoot.operatorClicked(Constants.Operator.Subtract);
         mainRoot.digitClicked(4);
         mainRoot.equalsClicked();
         verify(mainRoot.result.toFormatNumber() === "5", "Result of 9 - 4 should be 5");
@@ -69,7 +68,7 @@ TestCase {
         mainRoot.allClearClicked();
 
         mainRoot.digitClicked(6);
-        mainRoot.setOperator(Constants.Operator.Multiply);
+        mainRoot.operatorClicked(Constants.Operator.Multiply);
         mainRoot.digitClicked(7);
         mainRoot.equalsClicked();
         verify(mainRoot.result.toFormatNumber() === "42", "Result of 6 * 7 should be 42");
@@ -77,7 +76,7 @@ TestCase {
         mainRoot.allClearClicked();
 
         mainRoot.digitClicked(8);
-        mainRoot.setOperator(Constants.Operator.Divide);
+        mainRoot.operatorClicked(Constants.Operator.Divide);
         mainRoot.digitClicked(2);
         mainRoot.equalsClicked();
         verify(mainRoot.result.toFormatNumber() === "4", "Result of 8 / 2 should be 4");

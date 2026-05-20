@@ -433,6 +433,10 @@ PlasmoidItem {
     // Custom button component to ensure consistent styling and behavior across all calculator buttons.
     component CalcButton : PlasmaComponents.Button {
         property alias buttonFont: buttonLabel.font
+
+        implicitWidth: 60
+        implicitHeight: 40
+
         Layout.fillWidth: true
         Layout.fillHeight: true
     
@@ -604,15 +608,15 @@ PlasmoidItem {
                 imagePath: "widgets/frame"
                 prefix: "plain"
 
-                focus: main.expanded
+                // focus: main.expanded
 
                 ColumnLayout {
                     // Fill the frame completely while respecting the SVG theme borders
-                    anchors.fill: displayFrame
-                    anchors.leftMargin: displayFrame.margins.left
-                    anchors.rightMargin: displayFrame.margins.right
-                    anchors.topMargin: displayFrame.margins.top
-                    anchors.bottomMargin: displayFrame.margins.bottom
+                    anchors.fill: parent
+                    anchors.leftMargin: (parent && parent.margins) ? parent.margins.left : 0
+                    anchors.rightMargin: (parent && parent.margins) ? parent.margins.right : 0
+                    anchors.topMargin: (parent && parent.margins) ? parent.margins.top : 0
+                    anchors.bottomMargin: (parent && parent.margins) ? parent.margins.bottom : 0
                     spacing: 0
 
                     RowLayout {
@@ -796,7 +800,7 @@ PlasmoidItem {
                         verticalAlignment: TextEdit.AlignVCenter
                         readOnly: true
 
-                        focus: main.expanded
+                        // focus: main.expanded
 
                         Accessible.name: text
                         Accessible.description: i18nc("@label calculation result", "Result")
@@ -823,9 +827,15 @@ PlasmoidItem {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
+                property real equalWidth: (width - (columnSpacing * (columns - 1))) / columns
+                property real equalHeight: (height - (rowSpacing * (rows - 1))) / rows
+                property real smallFontSize: Math.max(1, Math.min(equalWidth / 5 , equalHeight / 3))
+                property real normalFontSize: Math.max(1, Math.min(equalWidth / 4 , equalHeight / 2.4))
+
                 CalcButton {
                     id: allClearButton
-                    buttonFont.pointSize: sevenButton.buttonFont.pointSize * 0.75
+                    buttonFont.pointSize: buttonsGrid.smallFontSize
+                    Layout.preferredWidth: buttonsGrid.equalWidth
 
                     KeyNavigation.up: zeroButton
                     KeyNavigation.down: memoryRecallClearButton
@@ -838,7 +848,8 @@ PlasmoidItem {
 
                 CalcButton {
                     id: clearButton
-                    buttonFont.pointSize: sevenButton.buttonFont.pointSize * 0.75
+                    buttonFont.pointSize: buttonsGrid.smallFontSize
+                    Layout.preferredWidth: buttonsGrid.equalWidth
 
                     KeyNavigation.up: decimalButton
                     KeyNavigation.down: memoryMinusButton
@@ -855,6 +866,8 @@ PlasmoidItem {
                 // New button for sign inversion (negate).
                 CalcButton {
                     id: negateButton
+                    buttonFont.pointSize: buttonsGrid.normalFontSize
+                    Layout.preferredWidth: buttonsGrid.equalWidth
 
                     KeyNavigation.up: ansButton
                     KeyNavigation.down: memoryPlusButton
@@ -867,6 +880,8 @@ PlasmoidItem {
 
                 CalcButton {
                     id: rootButton
+                    buttonFont.pointSize: buttonsGrid.normalFontSize
+                    Layout.preferredWidth: buttonsGrid.equalWidth
 
                     KeyNavigation.up: plusButton
                     KeyNavigation.down: divideButton
@@ -880,7 +895,7 @@ PlasmoidItem {
 
                 CalcButton {
                     id: memoryRecallClearButton
-                    buttonFont.pointSize: sevenButton.buttonFont.pointSize * 0.75
+                    buttonFont.pointSize: buttonsGrid.smallFontSize
 
                     KeyNavigation.up: allClearButton
                     KeyNavigation.down: sevenButton
@@ -893,7 +908,7 @@ PlasmoidItem {
 
                 CalcButton {
                     id: memoryMinusButton
-                    buttonFont.pointSize: sevenButton.buttonFont.pointSize * 0.75
+                    buttonFont.pointSize: buttonsGrid.smallFontSize
 
                     KeyNavigation.up: clearButton
                     KeyNavigation.down: eightButton
@@ -908,7 +923,7 @@ PlasmoidItem {
                 // New button for sign inversion (negate).
                 CalcButton {
                     id: memoryPlusButton
-                    buttonFont.pointSize: sevenButton.buttonFont.pointSize * 0.75
+                    buttonFont.pointSize: buttonsGrid.smallFontSize
 
                     KeyNavigation.up: negateButton
                     KeyNavigation.down: nineButton
@@ -921,6 +936,7 @@ PlasmoidItem {
 
                 CalcButton {
                     id: divideButton
+                    buttonFont.pointSize: buttonsGrid.normalFontSize
 
                     KeyNavigation.up: rootButton
                     KeyNavigation.down: multiplyButton
@@ -934,91 +950,99 @@ PlasmoidItem {
 
                 CalcButton {
                     id: sevenButton
+                    buttonFont.pointSize: buttonsGrid.normalFontSize
 
                     KeyNavigation.up: allClearButton
                     KeyNavigation.down: fourButton
                     KeyNavigation.left: multiplyButton
                     KeyNavigation.right: eightButton
 
-                    text: "\u20027\u2002"
+                    text: "7"
                     onClicked: main.digitClicked(7)
                 }
 
                 CalcButton {
                     id: eightButton
+                    buttonFont.pointSize: buttonsGrid.normalFontSize
 
                     KeyNavigation.up: clearButton
                     KeyNavigation.down: fiveButton
                     KeyNavigation.left: sevenButton
                     KeyNavigation.right: nineButton
 
-                    text: "\u20028\u2002"
+                    text: "8"
                     onClicked: main.digitClicked(8)
                 }
 
                 CalcButton {
                     id: nineButton
+                    buttonFont.pointSize: buttonsGrid.normalFontSize
 
                     KeyNavigation.up: negateButton
                     KeyNavigation.down: sixButton
                     KeyNavigation.left: eightButton
                     KeyNavigation.right: multiplyButton
 
-                    text: "\u20029\u2002"
+                    text: "9"
                     onClicked: main.digitClicked(9)
                 }
 
                 CalcButton {
                     id: multiplyButton
+                    buttonFont.pointSize: buttonsGrid.normalFontSize
 
                     KeyNavigation.up: divideButton
                     KeyNavigation.down: minusButton
                     KeyNavigation.left: nineButton
                     KeyNavigation.right: sevenButton
 
-                    text: i18nc("Text of the multiplication button", "\u2002×\u2002")
+                    text: i18nc("Text of the multiplication button", "×")
                     onClicked: main.operatorClicked(Constants.Operator.Multiply)
                 }
 
 
                 CalcButton {
                     id: fourButton
+                    buttonFont.pointSize: buttonsGrid.normalFontSize
 
                     KeyNavigation.up: sevenButton
                     KeyNavigation.down: oneButton
                     KeyNavigation.left: minusButton
                     KeyNavigation.right: fiveButton
 
-                    text: "\u20024\u2002"
+                    text: "4"
                     onClicked: main.digitClicked(4)
                 }
 
                 CalcButton {
                     id: fiveButton
+                    buttonFont.pointSize: buttonsGrid.normalFontSize
 
                     KeyNavigation.up: eightButton
                     KeyNavigation.down: twoButton
                     KeyNavigation.left: fourButton
                     KeyNavigation.right: sixButton
 
-                    text: "\u20025\u2002"
+                    text: "5"
                     onClicked: main.digitClicked(5)
                 }
 
                 CalcButton {
                     id: sixButton
+                    buttonFont.pointSize: buttonsGrid.normalFontSize
 
                     KeyNavigation.up: nineButton
                     KeyNavigation.down: threeButton
                     KeyNavigation.left: fiveButton
                     KeyNavigation.right: minusButton
 
-                    text: "\u20026\u2002"
+                    text: "6"
                     onClicked: main.digitClicked(6)
                 }
 
                 CalcButton {
                     id: minusButton
+                    buttonFont.pointSize: buttonsGrid.normalFontSize
 
                     KeyNavigation.up: multiplyButton
                     KeyNavigation.down: plusButton
@@ -1032,42 +1056,46 @@ PlasmoidItem {
 
                 CalcButton {
                     id: oneButton
+                    buttonFont.pointSize: buttonsGrid.normalFontSize
 
                     KeyNavigation.up: fourButton
                     KeyNavigation.down: zeroButton
                     KeyNavigation.left: plusButton
                     KeyNavigation.right: twoButton
 
-                    text: "\u20021\u2002"
+                    text: "1"
                     onClicked: main.digitClicked(1)
                 }
 
                 CalcButton {
                     id: twoButton
+                    buttonFont.pointSize: buttonsGrid.normalFontSize
 
                     KeyNavigation.up: fiveButton
                     KeyNavigation.down: decimalButton
                     KeyNavigation.left: oneButton
                     KeyNavigation.right: threeButton
 
-                    text: "\u20022\u2002"
+                    text: "2"
                     onClicked: main.digitClicked(2)
                 }
 
                 CalcButton {
                     id: threeButton
+                    buttonFont.pointSize: buttonsGrid.normalFontSize
 
                     KeyNavigation.up: sixButton
                     KeyNavigation.down: ansButton
                     KeyNavigation.left: twoButton
                     KeyNavigation.right: plusButton
 
-                    text: "\u20023\u2002"
+                    text: "1"
                     onClicked: main.digitClicked(3)
                 }
 
                 CalcButton {
                     id: plusButton
+                    buttonFont.pointSize: buttonsGrid.normalFontSize
 
                     KeyNavigation.up: minusButton
                     KeyNavigation.down: rootButton
@@ -1081,6 +1109,7 @@ PlasmoidItem {
 
                 CalcButton {
                     id: zeroButton
+                    buttonFont.pointSize: buttonsGrid.normalFontSize
 
                     KeyNavigation.up: oneButton
                     KeyNavigation.down: allClearButton
@@ -1088,12 +1117,13 @@ PlasmoidItem {
                     KeyNavigation.right: decimalButton
 
 
-                    text: "\u20020\u2002"
+                    text: "0"
                     onClicked: main.digitClicked(0)
                 }
 
                 CalcButton {
                     id: decimalButton
+                    buttonFont.pointSize: buttonsGrid.normalFontSize
 
                     KeyNavigation.up: twoButton
                     KeyNavigation.down: clearButton
@@ -1106,6 +1136,7 @@ PlasmoidItem {
 
                 CalcButton {
                     id: ansButton
+                    buttonFont.pointSize: buttonsGrid.normalFontSize
 
                     KeyNavigation.up: threeButton
                     KeyNavigation.down: negateButton
