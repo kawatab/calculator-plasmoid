@@ -24,7 +24,7 @@ QtObject {
     readonly property int minExponent: -100
     property real mantissa: 0
     property int exponent: 0
-    property int caretPosition: -1
+    property int caretPosition: 0
     property bool commaPressed: false
 
     function isEditable() {
@@ -329,7 +329,7 @@ QtObject {
                 text = insertSeparatorToFractionPart("0." + "0".repeat(caretPosition));
             } else {
                 let number = exponent > 0 ? mantissa * Math.pow(10, exponent) : mantissa / Math.pow(10, -exponent);
-                let temp = number.toLocaleString(Qt.locale(), "f", (number < 1 ? caretPosition : caretPosition - (exponent + precision)));
+                let temp = number.toLocaleString(Qt.locale(), "f", (Math.abs(number) < 1 ? caretPosition : caretPosition - (exponent + precision)));
                 text = insertSeparatorToFractionPart(temp);
                 if (!text.includes(Qt.locale().decimalPoint)) {
                     text += Qt.locale().decimalPoint;

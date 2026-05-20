@@ -40,7 +40,7 @@ PlasmoidItem {
     switchHeight: Math.round(Kirigami.Units.gridUnit * 6)
 
     property DecimalNumber result: DecimalNumber {}
-    property DecimalNumber operand: DecimalNumber { caretPosition: 0 }
+    property DecimalNumber operand: DecimalNumber {}
     property DecimalNumber memory: DecimalNumber {}
     property DecimalNumber temporary: DecimalNumber {}
     property int displayValue: Constants.RegisterRole.Operand
