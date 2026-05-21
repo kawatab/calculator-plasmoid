@@ -22,6 +22,7 @@
  *   - Emulated Casio-style behavior.
  *   - Added support for constant calculation mode (K mode).
  *   - Modified error handling to display an error state instead of showing "Error" in the display.
+ *   - Added support for percentage calculations with context-sensitive behavior.
  */
 // pragma ComponentBehavior: Bound;
 
@@ -42,11 +43,12 @@ PlasmoidItem {
     property DecimalNumber result: DecimalNumber {}
     property DecimalNumber operand: DecimalNumber {}
     property DecimalNumber memory: DecimalNumber {}
-    property DecimalNumber temporary: DecimalNumber {}
+    property DecimalNumber buffer: DecimalNumber {}
     property int displayValue: Constants.RegisterRole.Operand
     property int operator: Constants.Operator.None
     property bool hasMemory: false
     property bool isKCalculationMode: false
+    property bool isPercentageMode: false
     property bool isErrorState: false
     property TextEdit display
 
@@ -102,7 +104,8 @@ PlasmoidItem {
     // If the displayed number is read-only (result), start a new entry by clearing the current
     // result if no operator is pending, or clearing the current operand if an operator is pending.
     function digitClicked(digit) {
-        if (isErrorState) return;
+        if (isErrorState) return; // AC and CE can clear the error state.
+        clearPercentageMode();
 
         if (isDisplayedNumberReadOnly()) {
             if (hasNoOperator()) {
@@ -120,7 +123,8 @@ PlasmoidItem {
     // If the displayed number is editable (current operand), delete the last digit. If the
     // displayed number is read-only (result), clear the current entry instead.
     function deleteDigit() {
-        if (isErrorState) return;
+        if (isErrorState) return; // AC and CE can clear the error state.
+        clearPercentageMode();
 
         if (isDisplayedNumberEditable()) {
             operand.deleteDigit();
@@ -134,7 +138,8 @@ PlasmoidItem {
     // If the displayed number is read-only (result), start a new entry by clearing the current
     // result if no operator is pending, or clearing the current operand if an operator is pending.
     function decimalClicked() {
-        if (isErrorState) return;
+        if (isErrorState) return; // AC and CE can clear the error state.
+        clearPercentageMode();
 
         if (isDisplayedNumberReadOnly()) {
             clearOperand();
@@ -175,22 +180,47 @@ PlasmoidItem {
 
         // Keep result for
         if (!isKCalculationMode) {
-            temporary.assign(result);
+            buffer.assign(result);
         }
 
         displayResult();
     }
 
-    // Added by Yasuhiro Yamakawa on 2026-05-14
-    // Adapted to the new operator handling logic.
     function clearOperator() {
         operator = Constants.Operator.None;
     }
 
-    // Modified by Yasuhiro Yamakawa on 2026-05-14
-    // Adapted to the new operator handling logic.
     function operatorClicked(op) {
-        if (isErrorState) return;
+        if (isErrorState) return; // AC and CE can clear the error state.
+        
+        if (isPercentageMode) {
+            isPercentageMode = false;
+            if (operator === Constants.Operator.Add) {
+                if (op === Constants.Operator.Subtract) {
+                    operand.assign(buffer);
+                    result.subtract(operand);
+                    operator = Constants.Operator.None;
+                    displayResult();
+                    return;
+                }
+            } else if (operator === Constants.Operator.Multiply) {
+                if (op === Constants.Operator.Add) {
+                    operand.assign(buffer);
+                    result.add(operand);
+                    operator = Constants.Operator.None;
+                    displayResult();
+                    return;
+                } else if (op === Constants.Operator.Subtract) {
+                    operand.assign(result);
+                    result.assign(buffer);
+                    result.subtract(operand);
+                    operator = Constants.Operator.None;
+                    displayResult();
+                    return;
+                }
+            }
+            operator = Constants.Operator.None;
+        }
 
         if (isOperandDisplayed()) {
             if (isKCalculationMode) {
@@ -205,21 +235,23 @@ PlasmoidItem {
                 isKCalculationMode = false;
             } else if (isResultDisplayed && operator === op) {
                 isKCalculationMode = true;
-                temporary.assign(result);
+                buffer.assign(result);
             }
         }
         
-        if (isErrorState) {
-            result.assign(temporary);
+        if (isErrorState) { // Reverts result on error.
+            result.assign(buffer);
         } else {
             operator = op;
         }
     }
 
-    // Support sign inversion (Casio style):
-    // Inverts the current result if no input has started, or inverts the current operand being typed.
+    // Support negate (±) functionality:
+    // Negates the current operand if it's being displayed, or negates the result if the result is
+    // being displayed.
     function negateClicked() {
-        if (isErrorState) return;
+        if (isErrorState) return; // AC and CE can clear the error state.
+        clearPercentageMode();
 
         if (isOperandDisplayed()) {
             operand.negate();
@@ -234,7 +266,8 @@ PlasmoidItem {
     // If the current operand or result is negative, display an error message instead of performing
     // the operation, as square root of negative numbers is not supported in this calculator.
     function rootClicked() {
-        if (isErrorState) return;
+        if (isErrorState) return; // AC and CE can clear the error state.
+        clearPercentageMode();
 
         if (isOperandDisplayed()) {
             operand.setReadOnly();
@@ -246,7 +279,7 @@ PlasmoidItem {
                 return;
             }
 
-            temporary.assign(operand);
+            buffer.assign(operand);
             operand.sqrt();
             displayOperand();
         } else {
@@ -273,18 +306,19 @@ PlasmoidItem {
     // result. Then clear the operator and operand to allow for new input or continued calculations
     // with the result.
     function equalsClicked() {
-        if (isErrorState) return;
+        if (isErrorState) return; // AC and CE can clear the error state.
+        clearPercentageMode();
 
         if (isKCalculationMode) {
             if (isOperandDisplayed()) {
                 result.assign(operand);
             }
-            operand.assign(temporary);
+            operand.assign(buffer);
             doOperation();
         } else if (isOperandDisplayed() || hasOperator()) {
             doOperation();
-            if (isErrorState) {
-                result.assign(temporary);
+            if (isErrorState) { // Reverts result on error.
+                result.assign(buffer);
             } else {
                 clearOperator();
                 clearOperand();
@@ -295,30 +329,20 @@ PlasmoidItem {
     // Support clear entry (CE) functionality:
     // Clears the current operand being typed without affecting the ongoing calculation or operator.
     function clearEntryClicked() {
-        if (isErrorState) {
+        if (isErrorState) { // Clears error state on first click.
             isErrorState = false;
-        } else {
+        } else {  // Clears operand on second click.
+            isPercentageMode = false;
             clearOperand();
             displayOperand();
         }
     }
 
-    /*
-    // Support clear (C) functionality:
-    // Clears the current entry and any pending operator, but retains the current result for continued calculations.
-    function clearClicked() {
-        isKCalculationMode = false;
-        temporary.clear();
-        clearOperator();
-        clearEntryClicked();
-    }
-    */
-
     // Support all clear (AC) functionality:
     // Clears the entire calculation state, including the current result and any ongoing input.
     function allClearClicked() {
         isKCalculationMode = false;
-        temporary.clear();
+        buffer.clear();
         clearOperator();
         clearEntryClicked();
         result.clear();
@@ -328,7 +352,8 @@ PlasmoidItem {
     // If the display is currently showing the memory value, clear it.
     // If hasMemory is false, it behaves as if it were zero.
     function memoryRecallClearClicked() {
-        if (isErrorState) return;
+        if (isErrorState) return; // AC and CE can clear the error state.
+        isPercentageMode = false;
 
         if (isMemoryDisplayed()) {
             clearMemory();
@@ -349,7 +374,8 @@ PlasmoidItem {
     // For memory plus (M+) button:
     // Adds the current result to memory.
     function memoryPlusClicked() {
-        if (isErrorState) return;
+        if (isErrorState) return; // AC and CE can clear the error state.
+        isPercentageMode = false;
 
         equalsClicked();
         memory.add(result);
@@ -359,11 +385,83 @@ PlasmoidItem {
     // For memory minus (M-) button:
     // Subtracts the current result from memory.
     function memoryMinusClicked() {
-        if (isErrorState) return;
+        if (isErrorState) return; // AC and CE can clear the error state.
+        isPercentageMode = false;
 
         equalsClicked();
         memory.subtract(result);
         hasMemory = true;
+    }
+
+    // Support percentage (%) functionality:
+    // The behavior of the percentage button depends on the current operator and whether the operand
+    // or result is being displayed. It follows Casio-style percentage calculations.
+    function percentClicked() {
+        if (isErrorState) return; // AC and CE can clear the error state.
+
+        if (isKCalculationMode || isPercentageMode) return;
+
+        switch (operator) {
+            case Constants.Operator.None:
+                // Do nothing
+                return;
+            case Constants.Operator.Add:
+                // a * (1 / (1 - b/100))
+                // a * (b/100 / (1 - b/100)) --- (-)
+                isPercentageMode = true;
+                buffer.assign(result);
+                operand.fromPercent();
+                result.assignOne();
+                result.subtract(operand);
+                if (result.isZero()) {
+                    isErrorState = true;
+                    return;
+                }
+                operand.assign(result);
+                result.assign(buffer);
+                result.divide(operand);
+                break;
+            case Constants.Operator.Subtract:
+                // (a - b) / b (%)
+                if (operand.isZero()) {
+                    isErrorState = true;
+                    return;
+                }
+                result.subtract(operand);
+                result.divide(operand);
+                result.toPercent();
+                operator = Constants.Operator.None
+                break;
+            case Constants.Operator.Multiply:
+                // a * b/100
+                // a + a * b/100 --- (+)
+                // a - a * b/100 --- (-)
+                isPercentageMode = true;
+                buffer.assign(result);
+                operand.fromPercent();
+                result.multiply(operand);
+                break;
+            case Constants.Operator.Divide:
+                // a / b (%)
+                if (operand.isZero()) {
+                    isErrorState = true;
+                    return;
+                }
+                result.divide(operand);
+                result.toPercent();
+                operator = Constants.Operator.None
+                break;
+        }
+
+        displayResult();
+    }
+
+    // Clears the operator if percentage mode is active. This is necessary to prevent incorrect behavior.
+    function clearPercentageMode() {
+        if (isPercentageMode) {
+            isPercentageMode = false;
+            operator = Constants.Operator.None
+        }
     }
 
     // Modified by Yasuhiro Yamakawa on 2026-05-14
@@ -573,6 +671,9 @@ PlasmoidItem {
                 case Qt.Key_F9:
                     main.negateClicked();
                     negateButton.forceActiveFocus(Qt.TabFocusReason);
+                    break;
+                case Qt.Key_Percent:
+                    main.percentClicked();
                     break;
                 default:
                     if (event.matches(StandardKey.Copy)) {

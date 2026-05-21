@@ -92,6 +92,11 @@ QtObject {
         exponent = 0;
     }
 
+    function assignOne() {
+        mantissa = 1e11;
+        exponent = -11;
+    }
+
     function add(other) { // assignZero() or normalize() required.
         if (isZero()) {
             assign(other);
@@ -220,6 +225,18 @@ QtObject {
         mantissa = Math.sqrt(tempMantissa);
         exponent = tempExponent / 2;
         normalize();
+    }
+
+    function fromPercent() {
+        if (isZero()) return;
+
+        exponent -= 2;
+    }
+
+    function toPercent() {
+        if (isZero()) return;
+
+        exponent += 2;
     }
 
     function appendDigit(digit) { // ensure editable
