@@ -290,6 +290,11 @@ PlasmoidItem {
                 return;
             }
 
+            if (isKCalculationMode) {
+                isKCalculationMode = false;
+                operator = Constants.Operator.None;
+            }
+
             // After clicking operators, if the user clicks the root button before entering a new operand.
             if (hasOperator()) {
                 allClearClicked();
@@ -930,17 +935,74 @@ PlasmoidItem {
 
                 property real equalWidth: (width - (columnSpacing * (columns - 1))) / columns
                 property real equalHeight: (height - (rowSpacing * (rows - 1))) / rows
+                property real extraSmallFontSize: Math.max(1, Math.min(equalWidth / 6 , equalHeight / 3.6))
                 property real smallFontSize: Math.max(1, Math.min(equalWidth / 5 , equalHeight / 3))
                 property real normalFontSize: Math.max(1, Math.min(equalWidth / 4 , equalHeight / 2.4))
+
+                CalcButton {
+                    id: memoryRecallClearButton
+                    buttonFont.pointSize: buttonsGrid.extraSmallFontSize
+
+                    KeyNavigation.up: zeroButton
+                    KeyNavigation.down: allClearButton
+                    KeyNavigation.left: rootButton
+                    KeyNavigation.right: memoryMinusButton
+
+                    text: i18nc("Text of the memory recall/clear button", "MRC")
+                    onClicked: main.memoryRecallClearClicked()
+                }
+
+                CalcButton {
+                    id: memoryMinusButton
+                    buttonFont.pointSize: buttonsGrid.extraSmallFontSize
+
+                    KeyNavigation.up: decimalButton
+                    KeyNavigation.down: clearButton
+                    KeyNavigation.left: memoryRecallClearButton
+                    KeyNavigation.right: memoryPlusButton
+
+                    text: i18nc("Text of the memory minus button", "M−")
+                    onClicked: main.memoryMinusClicked()
+                }
+
+                // Added by Yasuhiro Yamakawa on 2026-05-12
+                // New button for sign inversion (negate).
+                CalcButton {
+                    id: memoryPlusButton
+                    buttonFont.pointSize: buttonsGrid.extraSmallFontSize
+
+                    KeyNavigation.up: ansButton
+                    KeyNavigation.down: negateButton
+                    KeyNavigation.left: memoryMinusButton
+                    KeyNavigation.right: rootButton
+
+                    text: i18nc("Text of the memory plus button", "M+")
+                    onClicked: main.memoryPlusClicked()
+                }
+
+                CalcButton {
+                    id: rootButton
+                    buttonFont.pointSize: buttonsGrid.normalFontSize
+                    Layout.preferredWidth: buttonsGrid.equalWidth
+
+                    KeyNavigation.up: plusButton
+                    KeyNavigation.down: percentButton
+                    KeyNavigation.left: memoryPlusButton
+                    KeyNavigation.right: memoryRecallClearButton
+
+                    text: i18nc("Text of the root button", "√")
+                    onClicked: main.rootClicked()
+                }
+
 
                 CalcButton {
                     id: allClearButton
                     buttonFont.pointSize: buttonsGrid.smallFontSize
                     Layout.preferredWidth: buttonsGrid.equalWidth
 
-                    KeyNavigation.up: zeroButton
-                    KeyNavigation.down: memoryRecallClearButton
-                    KeyNavigation.left: rootButton
+                    KeyNavigation.up: memoryRecallClearButton
+                    KeyNavigation.down: sevenButton
+                    KeyNavigation.left: percentButton
                     KeyNavigation.right: clearButton
 
                     text: i18nc("Text of the all clear button", "AC")
@@ -952,8 +1014,8 @@ PlasmoidItem {
                     buttonFont.pointSize: buttonsGrid.smallFontSize
                     Layout.preferredWidth: buttonsGrid.equalWidth
 
-                    KeyNavigation.up: decimalButton
-                    KeyNavigation.down: memoryMinusButton
+                    KeyNavigation.up: memoryMinusButton
+                    KeyNavigation.down: eightButton
                     KeyNavigation.left: allClearButton
                     KeyNavigation.right: negateButton
 
@@ -970,82 +1032,27 @@ PlasmoidItem {
                     buttonFont.pointSize: buttonsGrid.normalFontSize
                     Layout.preferredWidth: buttonsGrid.equalWidth
 
-                    KeyNavigation.up: ansButton
-                    KeyNavigation.down: memoryPlusButton
+                    KeyNavigation.up: memoryPlusButton
+                    KeyNavigation.down: nineButton
                     KeyNavigation.left: clearButton
-                    KeyNavigation.right: rootButton
+                    KeyNavigation.right: percentButton
 
                     text: i18nc("Text of the negate button", "+/−")
                     onClicked: main.negateClicked()
                 }
 
                 CalcButton {
-                    id: rootButton
+                    id: percentButton
                     buttonFont.pointSize: buttonsGrid.normalFontSize
                     Layout.preferredWidth: buttonsGrid.equalWidth
 
-                    KeyNavigation.up: plusButton
+                    KeyNavigation.up: rootButton
                     KeyNavigation.down: divideButton
                     KeyNavigation.left: negateButton
                     KeyNavigation.right: allClearButton
 
-                    text: i18nc("Text of the root button", "√")
-                    onClicked: main.rootClicked()
-                }
-
-
-                CalcButton {
-                    id: memoryRecallClearButton
-                    buttonFont.pointSize: buttonsGrid.smallFontSize
-
-                    KeyNavigation.up: allClearButton
-                    KeyNavigation.down: sevenButton
-                    KeyNavigation.left: divideButton
-                    KeyNavigation.right: memoryMinusButton
-
-                    text: i18nc("Text of the memory recall/clear button", "MRC")
-                    onClicked: main.memoryRecallClearClicked()
-                }
-
-                CalcButton {
-                    id: memoryMinusButton
-                    buttonFont.pointSize: buttonsGrid.smallFontSize
-
-                    KeyNavigation.up: clearButton
-                    KeyNavigation.down: eightButton
-                    KeyNavigation.left: memoryRecallClearButton
-                    KeyNavigation.right: memoryPlusButton
-
-                    text: i18nc("Text of the memory minus button", "M−")
-                    onClicked: main.memoryMinusClicked()
-                }
-
-                // Added by Yasuhiro Yamakawa on 2026-05-12
-                // New button for sign inversion (negate).
-                CalcButton {
-                    id: memoryPlusButton
-                    buttonFont.pointSize: buttonsGrid.smallFontSize
-
-                    KeyNavigation.up: negateButton
-                    KeyNavigation.down: nineButton
-                    KeyNavigation.left: memoryMinusButton
-                    KeyNavigation.right: divideButton
-
-                    text: i18nc("Text of the memory plus button", "M+")
-                    onClicked: main.memoryPlusClicked()
-                }
-
-                CalcButton {
-                    id: divideButton
-                    buttonFont.pointSize: buttonsGrid.normalFontSize
-
-                    KeyNavigation.up: rootButton
-                    KeyNavigation.down: multiplyButton
-                    KeyNavigation.left: memoryPlusButton
-                    KeyNavigation.right: memoryRecallClearButton
-
-                    text: i18nc("Text of the division button", "÷")
-                    onClicked: main.operatorClicked(Constants.Operator.Divide)
+                    text: i18nc("Text of the percent button", "%")
+                    onClicked: main.percentClicked()
                 }
 
 
@@ -1055,7 +1062,7 @@ PlasmoidItem {
 
                     KeyNavigation.up: allClearButton
                     KeyNavigation.down: fourButton
-                    KeyNavigation.left: multiplyButton
+                    KeyNavigation.left: divideButton
                     KeyNavigation.right: eightButton
 
                     text: "7"
@@ -1082,23 +1089,23 @@ PlasmoidItem {
                     KeyNavigation.up: negateButton
                     KeyNavigation.down: sixButton
                     KeyNavigation.left: eightButton
-                    KeyNavigation.right: multiplyButton
+                    KeyNavigation.right: divideButton
 
                     text: "9"
                     onClicked: main.digitClicked(9)
                 }
 
                 CalcButton {
-                    id: multiplyButton
+                    id: divideButton
                     buttonFont.pointSize: buttonsGrid.normalFontSize
 
-                    KeyNavigation.up: divideButton
-                    KeyNavigation.down: minusButton
+                    KeyNavigation.up: percentButton
+                    KeyNavigation.down: multiplyButton
                     KeyNavigation.left: nineButton
                     KeyNavigation.right: sevenButton
 
-                    text: i18nc("Text of the multiplication button", "×")
-                    onClicked: main.operatorClicked(Constants.Operator.Multiply)
+                    text: i18nc("Text of the division button", "÷")
+                    onClicked: main.operatorClicked(Constants.Operator.Divide)
                 }
 
 
@@ -1108,7 +1115,7 @@ PlasmoidItem {
 
                     KeyNavigation.up: sevenButton
                     KeyNavigation.down: oneButton
-                    KeyNavigation.left: minusButton
+                    KeyNavigation.left: multiplyButton
                     KeyNavigation.right: fiveButton
 
                     text: "4"
@@ -1135,23 +1142,23 @@ PlasmoidItem {
                     KeyNavigation.up: nineButton
                     KeyNavigation.down: threeButton
                     KeyNavigation.left: fiveButton
-                    KeyNavigation.right: minusButton
+                    KeyNavigation.right: multiplyButton
 
                     text: "6"
                     onClicked: main.digitClicked(6)
                 }
 
                 CalcButton {
-                    id: minusButton
+                    id: multiplyButton
                     buttonFont.pointSize: buttonsGrid.normalFontSize
 
-                    KeyNavigation.up: multiplyButton
-                    KeyNavigation.down: plusButton
+                    KeyNavigation.up: divideButton
+                    KeyNavigation.down: minusButton
                     KeyNavigation.left: sixButton
                     KeyNavigation.right: fourButton
 
-                    text: i18nc("Text of the minus button", "−")
-                    onClicked: main.operatorClicked(Constants.Operator.Subtract)
+                    text: i18nc("Text of the multiplication button", "×")
+                    onClicked: main.operatorClicked(Constants.Operator.Multiply)
                 }
 
 
@@ -1161,7 +1168,7 @@ PlasmoidItem {
 
                     KeyNavigation.up: fourButton
                     KeyNavigation.down: zeroButton
-                    KeyNavigation.left: plusButton
+                    KeyNavigation.left: minusButton
                     KeyNavigation.right: twoButton
 
                     text: "1"
@@ -1188,32 +1195,32 @@ PlasmoidItem {
                     KeyNavigation.up: sixButton
                     KeyNavigation.down: ansButton
                     KeyNavigation.left: twoButton
-                    KeyNavigation.right: plusButton
+                    KeyNavigation.right: minusButton
 
                     text: "1"
                     onClicked: main.digitClicked(3)
                 }
 
                 CalcButton {
-                    id: plusButton
+                    id: minusButton
                     buttonFont.pointSize: buttonsGrid.normalFontSize
 
-                    KeyNavigation.up: minusButton
-                    KeyNavigation.down: rootButton
+                    KeyNavigation.up: multiplyButton
+                    KeyNavigation.down: plusButton
                     KeyNavigation.left: threeButton
                     KeyNavigation.right: oneButton
 
-                    Layout.rowSpan: 2
-                    text: i18nc("Text of the plus button", "+")
-                    onClicked: main.operatorClicked(Constants.Operator.Add)
+                    text: i18nc("Text of the minus button", "−")
+                    onClicked: main.operatorClicked(Constants.Operator.Subtract)
                 }
+
 
                 CalcButton {
                     id: zeroButton
                     buttonFont.pointSize: buttonsGrid.normalFontSize
 
                     KeyNavigation.up: oneButton
-                    KeyNavigation.down: allClearButton
+                    KeyNavigation.down: memoryRecallClearButton
                     KeyNavigation.left: plusButton
                     KeyNavigation.right: decimalButton
 
@@ -1227,7 +1234,7 @@ PlasmoidItem {
                     buttonFont.pointSize: buttonsGrid.normalFontSize
 
                     KeyNavigation.up: twoButton
-                    KeyNavigation.down: clearButton
+                    KeyNavigation.down: memoryMinusButton
                     KeyNavigation.left: zeroButton
                     KeyNavigation.right: ansButton
 
@@ -1240,12 +1247,25 @@ PlasmoidItem {
                     buttonFont.pointSize: buttonsGrid.normalFontSize
 
                     KeyNavigation.up: threeButton
-                    KeyNavigation.down: negateButton
+                    KeyNavigation.down: memoryPlusButton
                     KeyNavigation.left: decimalButton
                     KeyNavigation.right: plusButton
                     
                     text: i18nc("Text of the equals button", "=")
                     onClicked: main.equalsClicked()
+                }
+
+                CalcButton {
+                    id: plusButton
+                    buttonFont.pointSize: buttonsGrid.normalFontSize
+
+                    KeyNavigation.up: minusButton
+                    KeyNavigation.down: rootButton
+                    KeyNavigation.left: ansButton
+                    KeyNavigation.right: zeroButton
+
+                    text: i18nc("Text of the plus button", "+")
+                    onClicked: main.operatorClicked(Constants.Operator.Add)
                 }
             }
         }

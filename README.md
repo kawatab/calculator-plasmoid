@@ -6,6 +6,7 @@ A functional and lightweight calculator plasmoid for the KDE Plasma 6 desktop en
 
 - **Plasma 6 / Qt6 Compatibility:** Updated metadata format and QML event handling to ensure seamless performance on the latest KDE environments.
 - **Hardware Optimization:** Dedicated logic to handle specific key events, ensuring a smooth experience with physical calculator keys on external keyboards.
+- **Casio style behavior:** Emulated standard Casio office calculator logic and behaviors.
 
 ## Development Context: Supporting the F9 Scancode Convention
 
