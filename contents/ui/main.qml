@@ -906,7 +906,7 @@ PlasmoidItem {
                         verticalAlignment: TextEdit.AlignVCenter
                         readOnly: true
 
-                        // focus: main.expanded
+                        focus: main.expanded
 
                         Accessible.name: text
                         Accessible.description: i18nc("@label calculation result", "Result")
